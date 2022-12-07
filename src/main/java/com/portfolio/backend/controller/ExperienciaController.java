@@ -35,6 +35,11 @@ public class ExperienciaController {
 		return iExperiencia.getAllExperiencias();
 	}
 	
+	@GetMapping("/experiencia/{id}")
+	public Experiencia getExperiencia(@PathVariable Long id) {
+		return iExperiencia.getExperiencia(id);
+	}
+	
 	@PostMapping("/newexperiencia")
 	public ResponseEntity<Experiencia> addExperiencia(@RequestBody Experiencia experiencia){
 		iExperiencia.newExperiencia(experiencia);

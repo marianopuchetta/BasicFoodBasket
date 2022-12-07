@@ -38,6 +38,11 @@ private ITrayectoService iTrayecto;
 		return iTrayecto.getAllTrayectos();
 	}
 	
+	@GetMapping("/trayecto/{id}")
+	public Trayecto getTrayecto(@PathVariable Long id) {
+		return iTrayecto.getTrayecto(id);
+	}
+	
 	@PostMapping("/newtrayecto")
 	public ResponseEntity<Trayecto> addTrayecto(@RequestBody Trayecto trayecto) {
 		iTrayecto.newTrayecto(trayecto);

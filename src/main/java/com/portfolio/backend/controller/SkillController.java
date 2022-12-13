@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.portfolio.backend.model.Skill;
 import com.portfolio.backend.service.ISkillService;
 
-@CrossOrigin(origins = "*")
 @RestController
+@CrossOrigin(origins = "*")
 public class SkillController {
 	
 	@Autowired

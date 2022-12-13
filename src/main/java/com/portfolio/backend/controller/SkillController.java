@@ -20,7 +20,6 @@ import com.portfolio.backend.model.Skill;
 import com.portfolio.backend.service.ISkillService;
 
 @RestController
-@CrossOrigin(origins = "*")
 public class SkillController {
 	
 	@Autowired
@@ -37,6 +36,7 @@ public class SkillController {
 		return iSkill.getSkill(id);
 	}
 	
+	@CrossOrigin(origins = "*")
 	@PostMapping("/newskill")
 	public ResponseEntity<Skill>addSkill(@RequestBody Skill skill){
 		iSkill.newSkill(skill);

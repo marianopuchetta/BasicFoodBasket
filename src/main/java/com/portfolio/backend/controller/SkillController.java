@@ -36,7 +36,6 @@ public class SkillController {
 		return iSkill.getSkill(id);
 	}
 	
-	@CrossOrigin(origins = "*")
 	@PostMapping("/newskill")
 	public ResponseEntity<Skill>addSkill(@RequestBody Skill skill){
 		iSkill.newSkill(skill);

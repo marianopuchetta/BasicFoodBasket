@@ -48,11 +48,10 @@ public class SkillController {
 	
 	@PutMapping("/editskill/{id}")
 	public ResponseEntity<Skill>editSkill(@PathVariable Long id,
-											@RequestParam("nombre") String newNombre,
-											@RequestParam("nivel") String newNivel){
+											@RequestBody Skill skill){
 						 Skill skill_to_edit = iSkill.getSkill(id);
-						 skill_to_edit.setNombre(newNombre);
-						 skill_to_edit.setNivel(newNivel);
+						 skill_to_edit.setNombre(skill.getNombre());
+						 skill_to_edit.setNivel(skill.getNivel());
 						 
 						 iSkill.newSkill(skill_to_edit);
 												

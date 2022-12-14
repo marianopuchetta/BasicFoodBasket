@@ -53,16 +53,13 @@ public class ExperienciaController {
 	
 	@PutMapping("/editexperiencia/{id}")
 	public ResponseEntity<Experiencia> editExperiencia(@PathVariable Long id,
-											@RequestParam("empresa") String new_empresa,
-											@RequestParam("puesto") String new_puesto,
-											@RequestParam("desde") String new_desde,
-											@RequestParam("hasta") String new_hasta)	{
+											@RequestBody Experiencia experiencia)	{
 		Experiencia experiencia_to_edit = iExperiencia.getExperiencia(id);
 		
-		experiencia_to_edit.setEmpresa(new_empresa);
-		experiencia_to_edit.setPuesto(new_puesto);
-		experiencia_to_edit.setDesde(new_desde);
-		experiencia_to_edit.setHasta(new_hasta);
+		experiencia_to_edit.setEmpresa(experiencia.getEmpresa());
+		experiencia_to_edit.setPuesto(experiencia.getPuesto());
+		experiencia_to_edit.setDesde(experiencia.getDesde());
+		experiencia_to_edit.setHasta(experiencia.getHasta());
 		
 		iExperiencia.newExperiencia(experiencia_to_edit);
 		

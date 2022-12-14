@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -57,17 +56,14 @@ private ITrayectoService iTrayecto;
 	
 	@PutMapping("edittrayecto/{id}")
 	public ResponseEntity<Trayecto> editTrayecto(@PathVariable Long id,
-							@RequestParam("institucion") String newInstitucion,
-							@RequestParam("titulo") String newTitulo,
-							@RequestParam("desde") String newDesde,
-							@RequestParam("hasta") String newHasta) {
+							@RequestBody Trayecto trayecto) {
 		
 		Trayecto trayectoToEdit = iTrayecto.getTrayecto(id);
 		
-		trayectoToEdit.setInstitucion(newInstitucion);
-		trayectoToEdit.setTitulo(newTitulo);
-		trayectoToEdit.setDesde(newDesde);
-		trayectoToEdit.setHasta(newHasta);
+		trayectoToEdit.setInstitucion(trayecto.getInstitucion());
+		trayectoToEdit.setTitulo(trayecto.getTitulo());
+		trayectoToEdit.setDesde(trayecto.getDesde());
+		trayectoToEdit.setHasta(trayecto.getHasta());
 		
 		iTrayecto.newTrayecto(trayectoToEdit);
 		

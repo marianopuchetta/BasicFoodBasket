@@ -55,7 +55,6 @@ public class SkillController {
 						 
 						 iSkill.newSkill(skill_to_edit);
 												
-												
 		return new ResponseEntity<Skill>(skill_to_edit,HttpStatus.OK);
 	}
 	

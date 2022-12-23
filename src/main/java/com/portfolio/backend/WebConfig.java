@@ -18,5 +18,5 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
         .allowedMethods("*")
         .allowedOrigins("https://marianopuchetta-protfolio.web.app/");
-    }
+          }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,12 +24,12 @@ import com.portfolio.backend.service.ITrayectoService;
 *@author Mariano Puchetta
 *23 nov. 2022
 */
+@CrossOrigin(origins = "https://marianopuchetta-protfolio.web.app/", exposedHeaders = "token")
 @RestController
 public class TrayectoController {
 
 @Autowired
 private ITrayectoService iTrayecto;
-
 
 
 	@GetMapping("/trayectos")

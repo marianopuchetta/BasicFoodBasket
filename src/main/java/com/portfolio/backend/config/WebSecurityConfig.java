@@ -61,7 +61,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		httpSecurity.csrf().disable()
 		        .cors().and()	
 		// dont authenticate this particular request
-				.authorizeRequests().antMatchers("/authenticate", "/register","/home","/trayectos","/skills","/experiencias").permitAll().
+				.authorizeRequests().antMatchers("/authenticate", "/register","/home","/canasta","/profesores","/profesores/search").permitAll().
 				// all other requests need to be authenticated
 				anyRequest().authenticated().and().
 				// make sure we use stateless session; session won't be used to
@@ -75,7 +75,9 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 	    CorsConfiguration configuration = new CorsConfiguration();
-	    configuration.setAllowedOrigins(Arrays.asList("https://marianopuchetta-protfolio.web.app/"));
+	   // configuration.setAllowedOrigins(Arrays.asList("https://marianopuchetta-protfolio.web.app/"));
+	    configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200/"));
+	    
 	    configuration.setAllowCredentials(true);
 	    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", 
 	    "DELETE", "OPTIONS"));

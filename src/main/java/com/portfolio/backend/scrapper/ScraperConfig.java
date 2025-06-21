@@ -6,14 +6,22 @@ public class ScraperConfig {
     private String modalCloseSelector;
     private String cookieBannerSelector;
     private String overlaySelector;
+    private int timeoutSeconds;
+
 
     public ScraperConfig(String supermarketSlug, String priceSelector, String modalCloseSelector, 
-                        String cookieBannerSelector, String overlaySelector) {
+                        String cookieBannerSelector, String overlaySelector,int timeoutSeconds) {
         this.supermarketSlug = supermarketSlug;
         this.priceSelector = priceSelector;
         this.modalCloseSelector = modalCloseSelector;
         this.cookieBannerSelector = cookieBannerSelector;
         this.overlaySelector = overlaySelector;
+        this.timeoutSeconds = timeoutSeconds;
+    }
+    
+
+    public int getTimeoutSeconds() {
+        return timeoutSeconds;
     }
 
     public String getPriceSelector() {
@@ -44,7 +52,8 @@ public class ScraperConfig {
                     "div.precio.destacado",
                     "button.close-button.qa-close-modal",
                     "button.cookie-button.accept",
-                    "div.modal-backdrop"
+                    "div.modal-backdrop",
+                    20
                 );
                 
             case "disco":
@@ -53,7 +62,8 @@ public class ScraperConfig {
                     "#priceContainer",
                     "button.modal-close",
                     "#btn-cookie-allow",
-                    "div.overlay"
+                    "div.overlay",
+                    15
                 );
                 
             case "mas-online":
@@ -62,7 +72,8 @@ public class ScraperConfig {
                     "span[class*='dynamicProductPrice']",
                     "button.modal-close",
                     "#cookie-consent-button",
-                    "div.overlay"
+                    "div.overlay",
+                    15
                 );
                 
             default:

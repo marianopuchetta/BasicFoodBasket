@@ -1,3 +1,4 @@
+
 package com.portfolio.backend.config;
 
 
@@ -19,9 +20,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 @Component
 public class JwtTokenUtil implements Serializable{
 
-	/**
-	 * 
-	 */
+	
 	private static final long serialVersionUID = -1011685121575745726L;
 
 	public static final long JWT_TOKEN_VALIDITY = 5 * 60 * 60;
@@ -78,3 +77,4 @@ public class JwtTokenUtil implements Serializable{
 		return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
 	}
 }
+

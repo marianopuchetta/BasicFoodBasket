@@ -8,9 +8,8 @@ public class ScraperConfig {
     private String overlaySelector;
     private int timeoutSeconds;
 
-
     public ScraperConfig(String supermarketSlug, String priceSelector, String modalCloseSelector, 
-                        String cookieBannerSelector, String overlaySelector,int timeoutSeconds) {
+                        String cookieBannerSelector, String overlaySelector, int timeoutSeconds) {
         this.supermarketSlug = supermarketSlug;
         this.priceSelector = priceSelector;
         this.modalCloseSelector = modalCloseSelector;
@@ -18,7 +17,6 @@ public class ScraperConfig {
         this.overlaySelector = overlaySelector;
         this.timeoutSeconds = timeoutSeconds;
     }
-    
 
     public int getTimeoutSeconds() {
         return timeoutSeconds;
@@ -46,16 +44,17 @@ public class ScraperConfig {
 
     public static ScraperConfig getConfigFor(String supermarketSlug) {
         switch(supermarketSlug.toLowerCase()) {
-            case "la-anonima":
+            case "coto":
+                // El selector para el precio puede ser "span.sale-price" (oferta) o "var.price.h3.ng-star-inserted" (precio normal)
+                // Se recomienda manejar ambos en el scraper, pero aquí dejamos el principal para referencia
                 return new ScraperConfig(
-                    "la-anonima",
-                    "div.precio.destacado",
-                    "button.close-button.qa-close-modal",
-                    "button.cookie-button.accept",
-                    "div.modal-backdrop",
-                    20
+                		"coto",
+                        "var.price.h3",
+                        "button.close-modal",
+                        "#cookie-banner-accept",
+                        ".modal-backdrop",
+                        20
                 );
-                
             case "disco":
                 return new ScraperConfig(
                     "disco",
@@ -65,7 +64,6 @@ public class ScraperConfig {
                     "div.overlay",
                     15
                 );
-                
             case "mas-online":
                 return new ScraperConfig(
                     "mas-online",
@@ -75,7 +73,6 @@ public class ScraperConfig {
                     "div.overlay",
                     15
                 );
-                
             default:
                 throw new IllegalArgumentException("Supermercado no configurado: " + supermarketSlug);
         }

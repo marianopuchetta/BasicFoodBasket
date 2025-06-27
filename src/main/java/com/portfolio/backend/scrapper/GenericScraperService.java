@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.Set;
 
 @Service
 public class GenericScraperService implements IScraperService {
@@ -32,6 +33,16 @@ public class GenericScraperService implements IScraperService {
 
     private volatile boolean scrapingEnabled = true;
     private WebDriver currentDriver;
+
+    // Lista de productos DIA cuyo precio debe multiplicarse x2
+    private static final Set<String> DIA_DUPLICATE_PRICE_PRODUCTS = Set.of(
+        "Café Clásico La Morenita",
+        "Café Sensaciones Bonafide Torrado Intenso",
+        "Té en saquitos Crysf",
+        "Té Saquitos en Sobre Green Hills",
+        "Carne Picada común Atmósfera Modificada 600 Gr.",
+        "Carne Picada de Nalga x 500 Gr."
+    );
 
     @PreDestroy
     public void cleanUp() {
@@ -83,7 +94,7 @@ public class GenericScraperService implements IScraperService {
                     System.out.printf("Scrapeando %d productos de %s (%s)%n",
                         productos.size(), supermercado.getNombre(), tipoCanasta);
 
-                    scrapeProductos(currentDriver, productos, config, js);
+                    scrapeProductos(currentDriver, productos, config, js, supermercado.getSlug());
                 } catch (Exception e) {
                     System.err.println("Error al obtener productos: " + e.getMessage());
                     // Continuar con el siguiente tipo de canasta
@@ -101,7 +112,7 @@ public class GenericScraperService implements IScraperService {
     }
 
     private void scrapeProductos(WebDriver driver, List<Producto> productos,
-                                 ScraperConfig config, JavascriptExecutor js) {
+                                 ScraperConfig config, JavascriptExecutor js, String supermercadoSlug) {
 
         Function<By, Boolean> clickElementRobustly = (locator) -> {
             try {
@@ -144,6 +155,12 @@ public class GenericScraperService implements IScraperService {
 
                 String precioLimpio = extractPrice(precioElement, config, driver);
                 Double valor = Double.parseDouble(precioLimpio);
+
+                // Ajuste para DIA: Multiplica por 2 si corresponde
+                if ("dia".equalsIgnoreCase(supermercadoSlug) && shouldDoubleDiaProduct(producto.getNombre())) {
+                    valor = valor * 2;
+                }
+
                 guardarPrecio(producto, valor);
 
             } catch (Exception e) {
@@ -152,6 +169,11 @@ public class GenericScraperService implements IScraperService {
                 guardarPrecioFallback(producto);
             }
         }
+    }
+
+    private boolean shouldDoubleDiaProduct(String nombreProducto) {
+        // Normaliza para evitar posibles diferencias de espacios
+        return DIA_DUPLICATE_PRICE_PRODUCTS.contains(nombreProducto.trim());
     }
 
     private String extractPrice(WebElement priceElement, ScraperConfig config, WebDriver driver) {

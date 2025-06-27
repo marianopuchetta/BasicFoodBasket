@@ -73,6 +73,16 @@ public class ScraperConfig {
                     "div.overlay",
                     15
                 );
+            case "dia":
+                // Selector de precio: span.diaio-store-5-x-sellingPriceValue
+                return new ScraperConfig(
+                    "dia",
+                    "span.diaio-store-5-x-sellingPriceValue",
+                    null, // Si no hay modal de cierre, dejar null o el selector correcto si existe
+                    null, // Si no hay banner de cookies, dejar null o el selector correcto si existe
+                    null, // Si no hay overlay modal, dejar null o el selector correcto si existe
+                    15    // Timeout sugerido
+                );
             default:
                 throw new IllegalArgumentException("Supermercado no configurado: " + supermarketSlug);
         }

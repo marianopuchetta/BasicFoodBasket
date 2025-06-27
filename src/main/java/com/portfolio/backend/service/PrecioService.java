@@ -51,7 +51,8 @@ public class PrecioService implements IPrecioService {
 
     @Override
     public Optional<Precio> obtenerUltimoPrecioScrapeadoPorProducto(Producto producto) {
-        return precioRepository.findLastScrapeadoByProducto(producto);
+        // Corregido: llamamos con producto.getId()
+        return precioRepository.findLastScrapeadoByProducto(producto.getId());
     }
 
     @Override
@@ -63,6 +64,7 @@ public class PrecioService implements IPrecioService {
     public List<Precio> obtenerUltimosPreciosScrapeados() {
         return precioRepository.findScrapeadosByFecha(LocalDate.now());
     }
+
     @Override
     public Optional<Precio> findUltimoPrecioByProducto(Producto producto) {
         return precioRepository.findFirstByProductoOrderByFechaDesc(producto);

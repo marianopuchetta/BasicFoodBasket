@@ -488,11 +488,18 @@ public class CanastaService implements ICanastaService {
     }
 
     private double calcularTotal(List<Precio> precios) {
-        if (precios == null || precios.isEmpty()) return 0;
-        return precios.stream()
+        if (precios == null || precios.isEmpty()) {
+            System.out.println("No hay precios para calcular.");
+            return 0;
+        }
+
+        double total = precios.stream()
                 .filter(p -> p.getValor() != null)
                 .mapToDouble(Precio::getValor)
                 .sum();
+
+        System.out.println("Total calculado: " + total + " con " + precios.size() + " precios recibidos.");
+        return total;
     }
 
     private Double calcularVariacion(Double actual, Double anterior) {

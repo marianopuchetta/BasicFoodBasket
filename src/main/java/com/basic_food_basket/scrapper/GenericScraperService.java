@@ -162,7 +162,26 @@ public class GenericScraperService implements IScraperService {
                     valor = valor * 2;
                 }
 
-                guardarPrecio(producto, valor);
+                // NUEVA VALIDACIÓN: si valor es 0, intenta guardar el precio anterior como fallback
+                if (valor == 0.0) {
+                    Optional<Precio> ultimoPrecio = precioService.findUltimoPrecioByProducto(producto);
+                    if (ultimoPrecio.isPresent()) {
+                        // Guardar precio anterior como fallback para hoy, no scrapeado
+                        Precio precioFallback = new Precio();
+                        precioFallback.setProducto(producto);
+                        precioFallback.setFecha(LocalDate.now());
+                        precioFallback.setValor(ultimoPrecio.get().getValor());
+                        precioFallback.setScrapeado(false);
+                        precioService.guardarPrecio(precioFallback);
+                        System.out.printf("Guardado fallback por valor 0: %s - $%.2f (%s)%n",
+                            producto.getNombre(), ultimoPrecio.get().getValor(), producto.getTipoCanasta());
+                    } else {
+                        // No hay precio anterior, guardar el 0 normalmente
+                        guardarPrecio(producto, valor);
+                    }
+                } else {
+                    guardarPrecio(producto, valor);
+                }
 
             } catch (Exception e) {
                 System.err.println("Error procesando producto: " + producto.getNombre());
@@ -280,8 +299,8 @@ public class GenericScraperService implements IScraperService {
             guardarPrecioFallback(producto);
         }
     }
-}
-*/
+}*/
+
 package com.basic_food_basket.scrapper;
 
 import com.basic_food_basket.model.*;
@@ -425,14 +444,12 @@ public class GenericScraperService implements IScraperService {
                 System.out.println("\n--- Procesando producto: " + producto.getNombre() + " ---");
                 driver.get(producto.getUrl());
 
-                // Espera inicial para asegurar carga de página
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
+                // Espera inicial para asegurar carga de página (reemplazo de Thread.sleep)
+                WebDriverWait initialWait = new WebDriverWait(driver, Duration.ofSeconds(5));
+                initialWait.until(webDriver -> ((JavascriptExecutor) webDriver)
+                        .executeScript("return document.readyState").equals("complete"));
 
+                // Espera explícita para el precio
                 WebDriverWait waitPrecio = new WebDriverWait(driver, Duration.ofSeconds(30));
                 WebElement precioElement = waitPrecio.until(
                     ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector()))

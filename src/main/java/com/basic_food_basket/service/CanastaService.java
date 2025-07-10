@@ -362,6 +362,7 @@ package com.basic_food_basket.service;
 
 import com.basic_food_basket.model.*;
 import com.basic_food_basket.repository.PrecioRepository;
+import com.basic_food_basket.repository.ProductoRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -376,6 +377,54 @@ public class CanastaService implements ICanastaService {
 
     @Autowired
     private PrecioRepository precioRepository;
+    
+    @Autowired
+    private ProductoRepository productoRepository;
+
+
+    @Override
+    public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
+        Map<String, Object> respuesta = new LinkedHashMap<>();
+
+        // Traer todos los supermercados con productos
+        List<Supermercado> supermercados = productoRepository.findAll()
+                .stream().map(Producto::getSupermercado)
+                .distinct().collect(Collectors.toList());
+
+        List<Map<String, Object>> dataSupermercados = new ArrayList<>();
+
+        for (Supermercado supermercado : supermercados) {
+            Map<String, Object> supermercadoData = new LinkedHashMap<>();
+            supermercadoData.put("id", supermercado.getId());
+            supermercadoData.put("nombre", supermercado.getNombre());
+            supermercadoData.put("slug", supermercado.getSlug());
+
+            List<Producto> productos = productoRepository.findBySupermercado(supermercado);
+
+            List<Map<String, Object>> productosData = new ArrayList<>();
+            for (Producto producto : productos) {
+                Map<String, Object> productoData = new LinkedHashMap<>();
+                productoData.put("id", producto.getId());
+                productoData.put("nombre", producto.getNombre());
+                productoData.put("tipoCanasta", producto.getTipoCanasta().name());
+
+                Optional<Precio> precioOpt = precioRepository.findLastScrapeadoByProducto(producto.getId());
+                if (precioOpt.isPresent()) {
+                    Precio precio = precioOpt.get();
+                    productoData.put("precio", precio.getValor());
+                    productoData.put("fecha", precio.getFecha().toString());
+                } else {
+                    productoData.put("precio", null);
+                    productoData.put("fecha", null);
+                }
+                productosData.add(productoData);
+            }
+            supermercadoData.put("productos", productosData);
+            dataSupermercados.add(supermercadoData);
+        }
+        respuesta.put("supermercados", dataSupermercados);
+        return respuesta;
+    }
 
     @Override
     public Map<String, Object> obtenerResumenCanasta() {

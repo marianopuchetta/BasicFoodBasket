@@ -28,4 +28,6 @@ public interface ICanastaService {
 
     // Nuevo: historial general con rango de fechas
     Map<String, Object> obtenerHistorialGeneral(LocalDate desde, LocalDate hasta);
+    
+    Map<String, Object> obtenerUltimosPreciosPorSupermercado();
 }

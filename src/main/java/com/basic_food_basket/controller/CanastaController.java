@@ -58,4 +58,8 @@ public class CanastaController {
     ) {
         return canastaService.obtenerHistorialGeneral(desde, hasta);
     }
+    @GetMapping("/ultimos-precios")
+    public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
+        return canastaService.obtenerUltimosPreciosPorSupermercado();
+    }
 }

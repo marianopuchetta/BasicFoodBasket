@@ -142,4 +142,7 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
 
     @Query("SELECT DISTINCT pr.supermercado FROM Precio p JOIN p.producto pr")
     List<Supermercado> findDistinctSupermercados();
+    
+    @Query("SELECT p FROM Precio p WHERE p.producto = :producto AND p.scrapeado = true ORDER BY p.fecha DESC")
+    List<Precio> findScrapeadosByProductoOrderByFechaDesc(@Param("producto") Producto producto);
 }

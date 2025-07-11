@@ -381,10 +381,21 @@ public class CanastaService implements ICanastaService {
     @Autowired
     private ProductoRepository productoRepository;
 
-
     @Override
     public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
         Map<String, Object> respuesta = new LinkedHashMap<>();
+
+        // Obtener la última fecha scrapeada (de todos los precios)
+        Optional<Precio> precioMasRecienteOpt = precioRepository.findTopByOrderByFechaDesc();
+        String ultimaFecha = precioMasRecienteOpt.map(precio -> precio.getFecha().toString()).orElse(null);
+
+        // Armar el array de fechas
+        List<Map<String, Object>> fechas = new ArrayList<>();
+        Map<String, Object> fechaMap = new LinkedHashMap<>();
+        fechaMap.put("fecha", ultimaFecha);
+        fechas.add(fechaMap);
+
+        respuesta.put("fecha", fechas);
 
         // Traer todos los supermercados con productos
         List<Supermercado> supermercados = productoRepository.findAll()
@@ -395,29 +406,20 @@ public class CanastaService implements ICanastaService {
 
         for (Supermercado supermercado : supermercados) {
             Map<String, Object> supermercadoData = new LinkedHashMap<>();
-            supermercadoData.put("id", supermercado.getId());
             supermercadoData.put("nombre", supermercado.getNombre());
-            supermercadoData.put("slug", supermercado.getSlug());
 
             List<Producto> productos = productoRepository.findBySupermercado(supermercado);
 
             List<Map<String, Object>> productosData = new ArrayList<>();
             for (Producto producto : productos) {
-                Map<String, Object> productoData = new LinkedHashMap<>();
-                productoData.put("id", producto.getId());
-                productoData.put("nombre", producto.getNombre());
-                productoData.put("tipoCanasta", producto.getTipoCanasta().name());
-
                 Optional<Precio> precioOpt = precioRepository.findLastScrapeadoByProducto(producto.getId());
                 if (precioOpt.isPresent()) {
                     Precio precio = precioOpt.get();
+                    Map<String, Object> productoData = new LinkedHashMap<>();
+                    productoData.put("nombre", producto.getNombre());
                     productoData.put("precio", precio.getValor());
-                    productoData.put("fecha", precio.getFecha().toString());
-                } else {
-                    productoData.put("precio", null);
-                    productoData.put("fecha", null);
+                    productosData.add(productoData);
                 }
-                productosData.add(productoData);
             }
             supermercadoData.put("productos", productosData);
             dataSupermercados.add(supermercadoData);
@@ -425,6 +427,7 @@ public class CanastaService implements ICanastaService {
         respuesta.put("supermercados", dataSupermercados);
         return respuesta;
     }
+    
 
     @Override
     public Map<String, Object> obtenerResumenCanasta() {

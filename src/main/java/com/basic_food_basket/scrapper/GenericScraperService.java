@@ -416,6 +416,105 @@ public class GenericScraperService implements IScraperService {
     }
 
     private void scrapeProductos(WebDriver driver, List<Producto> productos,
+            ScraperConfig config, JavascriptExecutor js, String supermercadoSlug) {
+
+Function<By, Boolean> clickElementRobustly = (locator) -> {
+try {
+WebDriverWait clickWait = new WebDriverWait(driver, Duration.ofSeconds(10));
+WebElement element = clickWait.until(ExpectedConditions.elementToBeClickable(locator));
+if (element.isDisplayed()) {
+try {
+   element.click();
+   return true;
+} catch (ElementClickInterceptedException e) {
+   js.executeScript("arguments[0].click();", element);
+   return true;
+}
+}
+} catch (Exception e) {
+return false;
+}
+return false;
+};
+
+for (Producto producto : productos) {
+if (!scrapingEnabled) break;
+
+try {
+System.out.println("\n--- Procesando producto: " + producto.getNombre() + " ---");
+driver.get(producto.getUrl());
+
+// MODIFICACION 1: Espera inicial para asegurar carga de página.
+// Usar el timeout configurado para la espera de la carga completa del documento.
+WebDriverWait initialWait = new WebDriverWait(driver, Duration.ofSeconds(config.getTimeoutSeconds()));
+initialWait.until(webDriver -> ((JavascriptExecutor) webDriver)
+   .executeScript("return document.readyState").equals("complete"));
+
+// MODIFICACION 2: Manejo de modales y banners de cookies para CADA producto
+// Esto asegura que cualquier pop-up que aparezca al cargar una nueva URL sea cerrado.
+if (config.getModalCloseSelector() != null) {
+try {
+   clickElementRobustly.apply(By.cssSelector(config.getModalCloseSelector()));
+} catch (Exception ignored) { /* Ignorar si el modal no está presente o no es clickeable */ }
+}
+if (config.getCookieBannerSelector() != null) {
+try {
+   clickElementRobustly.apply(By.cssSelector(config.getCookieBannerSelector()));
+} catch (Exception ignored) { /* Ignorar si el banner de cookies no está presente o no es clickeable */ }
+}
+if (config.getOverlaySelector() != null) {
+try {
+   // Intentar cerrar el overlay si existe y no fue cubierto por el modal.
+   clickElementRobustly.apply(By.cssSelector(config.getOverlaySelector()));
+} catch (Exception ignored) { /* Ignorar si el overlay no está presente o no es clickeable */ }
+}
+
+// Espera explícita para el precio (se mantiene el timeout de 30 segundos)
+WebDriverWait waitPrecio = new WebDriverWait(driver, Duration.ofSeconds(30));
+WebElement precioElement = waitPrecio.until(
+ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector()))
+);
+
+String precioLimpio = extractPrice(precioElement, config, driver);
+Double valor = Double.parseDouble(precioLimpio);
+
+// Ajuste para DIA: Multiplica por 2 si corresponde
+if ("dia".equalsIgnoreCase(supermercadoSlug) && shouldDoubleDiaProduct(producto.getNombre())) {
+valor = valor * 2;
+}
+
+// NUEVA VALIDACIÓN: si valor es 0, intenta guardar el precio anterior como fallback
+if (valor == 0.0) {
+Optional<Precio> ultimoPrecio = precioService.findUltimoPrecioByProducto(producto);
+if (ultimoPrecio.isPresent()) {
+   // Guardar precio anterior como fallback para hoy, no scrapeado
+   Precio precioFallback = new Precio();
+   precioFallback.setProducto(producto);
+   precioFallback.setFecha(LocalDate.now());
+   precioFallback.setValor(ultimoPrecio.get().getValor());
+   precioFallback.setScrapeado(false);
+   precioService.guardarPrecio(precioFallback);
+   System.out.printf("Guardado fallback por valor 0: %s - $%.2f (%s)%n",
+       producto.getNombre(), ultimoPrecio.get().getValor(), producto.getTipoCanasta());
+} else {
+   // No hay precio anterior, guardar el 0 normalmente
+   guardarPrecio(producto, valor);
+}
+} else {
+guardarPrecio(producto, valor);
+}
+
+} catch (Exception e) {
+System.err.println("Error procesando producto: " + producto.getNombre());
+e.printStackTrace();
+guardarPrecioFallback(producto);
+}
+}
+}
+    
+    
+    /*
+    private void scrapeProductos(WebDriver driver, List<Producto> productos,
                                  ScraperConfig config, JavascriptExecutor js, String supermercadoSlug) {
 
         Function<By, Boolean> clickElementRobustly = (locator) -> {
@@ -490,7 +589,7 @@ public class GenericScraperService implements IScraperService {
                 guardarPrecioFallback(producto);
             }
         }
-    }
+    }*/
 
     private boolean shouldDoubleDiaProduct(String nombreProducto) {
         // Normaliza para evitar posibles diferencias de espacios
@@ -515,44 +614,34 @@ public class GenericScraperService implements IScraperService {
         try {
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-            WebElement priceContainer = wait.until(
+            WebElement priceElement = wait.until(
                 ExpectedConditions.presenceOfElementLocated(
                     By.cssSelector("span[class*='dynamicProductPrice']")
                 )
             );
 
-            List<WebElement> integerParts = priceContainer.findElements(
-                By.cssSelector("span[class*='currencyInteger']")
-            );
+            // Get the full text, which might include non-numeric characters like "por kg"
+            String priceText = priceElement.getText();
 
-            WebElement fractionPart = priceContainer.findElement(
-                By.cssSelector("span[class*='currencyFraction']")
-            );
+            // Use a regex to keep only digits. This should handle "1779porkg" -> "1779"
+            String cleanedPrice = priceText.replaceAll("[^\\d]", "");
 
-            String fullInteger = integerParts.stream()
-                .map(WebElement::getText)
-                .collect(Collectors.joining());
+            // If the cleaned string is empty after removing non-digits,
+            // return "0" to prevent NumberFormatException.
+            if (cleanedPrice.isEmpty()) {
+                return "0";
+            }
 
-            return fullInteger + "." + fractionPart.getText();
+            return cleanedPrice;
 
         } catch (Exception e) {
             System.err.println("Error al extraer precio de Más Online: " + e.getMessage());
-
-            try {
-                WebElement priceElement = driver.findElement(
-                    By.cssSelector("span[class*='dynamicProductPrice']")
-                );
-                return priceElement.getText()
-                    .replace("$", "")
-                    .replace(".", "")
-                    .replace(",", ".")
-                    .replaceAll("\\s", "")
-                    .trim();
-            } catch (Exception ex) {
-                throw new RuntimeException("No se pudo obtener el precio de Más Online", ex);
-            }
+            // In case of any WebDriver exception, log it and return "0" as a fallback
+            return "0";
         }
     }
+    
+  
 
     private void guardarPrecioFallback(Producto producto) {
         try {

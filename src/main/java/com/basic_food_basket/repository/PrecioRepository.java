@@ -145,4 +145,6 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
     
     @Query("SELECT p FROM Precio p WHERE p.producto = :producto AND p.scrapeado = true ORDER BY p.fecha DESC")
     List<Precio> findScrapeadosByProductoOrderByFechaDesc(@Param("producto") Producto producto);
+    
+    Optional<Precio> findTopByOrderByFechaDesc();
 }

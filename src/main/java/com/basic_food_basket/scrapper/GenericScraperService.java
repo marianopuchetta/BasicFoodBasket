@@ -80,9 +80,10 @@ public class GenericScraperService implements IScraperService {
 					break;
 
 				try {
-					List<Producto> productos = productoRepository.findBySupermercadoAndTipoCanasta(supermercado,
-							tipoCanasta);
+					//List<Producto> productos = productoRepository.findBySupermercadoAndTipoCanasta(supermercado,tipoCanasta);
+		            List<Producto> productos = productoRepository.findBySupermercadoIdAndTipoCanasta(supermercado.getId(), tipoCanasta);
 
+					
 					if (productos.isEmpty()) {
 						System.out.printf("No hay productos para %s (%s)%n", supermercado.getNombre(), tipoCanasta);
 						continue;
@@ -167,7 +168,7 @@ public class GenericScraperService implements IScraperService {
 				}
 
 				// Espera explícita para el precio (se mantiene el timeout de 30 segundos)
-				WebDriverWait waitPrecio = new WebDriverWait(driver, Duration.ofSeconds(30));
+				WebDriverWait waitPrecio = new WebDriverWait(driver, Duration.ofSeconds(20));
 				WebElement precioElement = waitPrecio.until(
 						ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector())));
 
@@ -222,40 +223,8 @@ public class GenericScraperService implements IScraperService {
 			return textoPrecio.replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
 		}
 	}
-
-	private String extractMasOnlinePrice(WebDriver driver) {
-	    try {
-	        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-
-	        WebElement priceElement = wait.until(
-	                ExpectedConditions.presenceOfElementLocated(By.cssSelector("span[class*='dynamicProductPrice']")));
-
-	        String priceText = priceElement.getText();
-	        System.out.println("Precio original de Más Online: " + priceText); // Para depuración
-
-	        // MODIFICACIÓN CLAVE AQUÍ:
-	        // Expresión regular para encontrar uno o más dígitos al inicio de la cadena,
-	        // o hasta encontrar un punto.
-	        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("^\\d+");
-	        java.util.regex.Matcher matcher = pattern.matcher(priceText);
-
-	        if (matcher.find()) {
-	            String foundPrice = matcher.group(0); // Captura todo el texto que coincide
-	            System.out.println("Precio extraído (limpio): " + foundPrice); // Para depuración
-	            return foundPrice;
-	        } else {
-	            System.err.println("No se encontró un patrón de precio válido en: " + priceText);
-	            return "0"; // No se encontró ningún patrón numérico, retornar 0
-	        }
-
-	    } catch (Exception e) {
-	        System.err.println("Error al extraer precio de Más Online: " + e.getMessage());
-	        return "0";
-	    }
-	}
 	
 	
-	/*
 	private String extractMasOnlinePrice(WebDriver driver) {
 		try {
 			WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
@@ -282,7 +251,7 @@ public class GenericScraperService implements IScraperService {
 			// In case of any WebDriver exception, log it and return "0" as a fallback
 			return "0";
 		}
-	}*/
+	}
 
 	private void guardarPrecioFallback(Producto producto) {
 		try {

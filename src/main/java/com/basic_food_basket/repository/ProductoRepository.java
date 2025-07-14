@@ -22,4 +22,5 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
             "   AND pr.fecha = (SELECT MAX(pr2.fecha) FROM Precio pr2 WHERE pr2.scrapeado = true)" +
             ")")
      List<Producto> findProductosNoScrapeadosEnUltimoScrap();
+    List<Producto> findBySupermercadoIdAndTipoCanasta(Long supermercadoId, TipoCanasta tipoCanasta);
 }

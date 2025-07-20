@@ -42,7 +42,6 @@ public class CanastaService implements ICanastaService {
                 .collect(Collectors.toList());
 
         List<Map<String, Object>> dataSupermercados = new ArrayList<>();
-        double totalProductos = 0.0; // <-- Acá inicializamos el total
 
         for (Supermercado supermercado : supermercados) {
             Map<String, Object> supermercadoData = new LinkedHashMap<>();
@@ -51,6 +50,8 @@ public class CanastaService implements ICanastaService {
             List<Producto> productos = productoRepository.findBySupermercado(supermercado);
 
             List<Map<String, Object>> productosData = new ArrayList<>();
+            double totalProductos = 0.0; // <-- total por supermercado
+
             for (Producto producto : productos) {
                 Optional<Precio> precioOpt = precioRepository.findLastScrapeadoByProducto(producto.getId());
                 if (precioOpt.isPresent()) {
@@ -60,20 +61,16 @@ public class CanastaService implements ICanastaService {
                     productoData.put("precio", precio.getValor());
                     productosData.add(productoData);
 
-                    // Sumar el precio al total
                     if (precio.getValor() != null) {
                         totalProductos += precio.getValor();
                     }
                 }
             }
             supermercadoData.put("productos", productosData);
+            supermercadoData.put("totalProductos", totalProductos); // <-- agrega el total aquí
             dataSupermercados.add(supermercadoData);
         }
         respuesta.put("supermercados", dataSupermercados);
-
-        // Agregar el total de todos los productos al JSON de respuesta
-        respuesta.put("totalProductos", totalProductos);
-
         return respuesta;
     }
 

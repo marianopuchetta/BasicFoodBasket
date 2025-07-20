@@ -50,8 +50,8 @@ public class CanastaService implements ICanastaService {
             List<Producto> productos = productoRepository.findBySupermercado(supermercado);
 
             List<Map<String, Object>> productosData = new ArrayList<>();
-            double totalProductos = 0.0; // <-- total por supermercado
-
+            double totalSupermercado = 0.0;
+            
             for (Producto producto : productos) {
                 Optional<Precio> precioOpt = precioRepository.findLastScrapeadoByProducto(producto.getId());
                 if (precioOpt.isPresent()) {
@@ -60,20 +60,19 @@ public class CanastaService implements ICanastaService {
                     productoData.put("nombre", producto.getNombre());
                     productoData.put("precio", precio.getValor());
                     productosData.add(productoData);
-
-                    if (precio.getValor() != null) {
-                        totalProductos += precio.getValor();
-                    }
+                    
+                    // Sumar al total del supermercado
+                    totalSupermercado += precio.getValor();
                 }
             }
+            
             supermercadoData.put("productos", productosData);
-            supermercadoData.put("totalProductos", totalProductos); // <-- agrega el total aquí
+            supermercadoData.put("total", totalSupermercado); // Agregar el total al supermercado
             dataSupermercados.add(supermercadoData);
         }
         respuesta.put("supermercados", dataSupermercados);
         return respuesta;
     }
-
    /* @Override
     public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
         Map<String, Object> respuesta = new LinkedHashMap<>();

@@ -63,6 +63,11 @@ public class ScraperController {
     public String ejecutarScraperTodos() {
         List<Supermercado> supermercados = supermercadoRepository.findAll();
         
+        for (Supermercado s : supermercados) {
+            System.out.println(s);
+        }
+
+        
         if (supermercados.isEmpty()) {
             return "No hay supermercados configurados";
         }

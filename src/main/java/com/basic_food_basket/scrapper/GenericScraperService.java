@@ -173,6 +173,10 @@ public class GenericScraperService implements IScraperService {
 						ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector())));
 
 				String precioLimpio = extractPrice(precioElement, config, driver);
+				
+				System.out.println("[DEBUG] Precio procesado: " + precioLimpio + " (Original: " + precioElement.getText() + ")");
+
+				
 				Double valor = Double.parseDouble(precioLimpio);
 
 				// Ajuste para DIA: Multiplica por 2 si corresponde
@@ -224,35 +228,97 @@ public class GenericScraperService implements IScraperService {
 		}
 	}
 	
-	
 	private String extractMasOnlinePrice(WebDriver driver) {
-		try {
-			WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+	    try {
+	        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+	        WebElement priceElement = wait.until(
+	                ExpectedConditions.presenceOfElementLocated(By.cssSelector("span[class*='dynamicProductPrice']")));
 
-			WebElement priceElement = wait.until(
-					ExpectedConditions.presenceOfElementLocated(By.cssSelector("span[class*='dynamicProductPrice']")));
+	        String priceText = priceElement.getText().split("por kg")[0].trim(); // <- ¡Nuevo!
+	        System.out.println("[DEBUG-RAW] Precio original: " + priceText);
 
-			// Get the full text, which might include non-numeric characters like "por kg"
-			String priceText = priceElement.getText();
+	        // Normalización
+	        priceText = priceText.replace("$", "").replace(" ", "").trim();
+	        String resultadoFinal;
 
-			// Use a regex to keep only digits. This should handle "1779porkg" -> "1779"
-			String cleanedPrice = priceText.replaceAll("[^\\d]", "");
+	        // Caso 1: Formato con coma decimal (ej: "1.299,99" → "1299")
+	        if (priceText.contains(",")) {
+	            resultadoFinal = priceText.split(",")[0].replace(".", "");
+	            System.out.println("[DEBUG-FORMAT] Tipo: Formato con coma decimal");
+	        }
+	        // Caso 2: Precio con punto pero SIN decimales (ej: "1.299" → "1299")
+	        else if (priceText.matches("^\\d{1,3}(\\.\\d{3})+$")) {
+	            resultadoFinal = priceText.replace(".", "");
+	            System.out.println("[DEBUG-FORMAT] Tipo: Puntos como separadores de miles");
+	        }
+	        // Caso 3: Formato ambiguo con 5+ dígitos tras punto (ej: "5.43920" → "5439")
+	        else if (priceText.matches("\\d+\\.\\d{5,}")) {
+	            resultadoFinal = priceText.replace(".", "").substring(0, priceText.length() - 3);
+	            System.out.println("[DEBUG-FORMAT] Tipo: Formato ambiguo (kg)");
+	        }
+	        // Caso 4: Sin formato especial (ej: "5439")
+	        else {
+	            resultadoFinal = priceText;
+	            System.out.println("[DEBUG-FORMAT] Tipo: Sin formato especial");
+	        }
 
-			// If the cleaned string is empty after removing non-digits,
-			// return "0" to prevent NumberFormatException.
-			if (cleanedPrice.isEmpty()) {
-				return "0";
-			}
+	        resultadoFinal = resultadoFinal.replaceAll("[^\\d]", "");
+	        System.out.println("[DEBUG-RESULT] Parte entera final: " + resultadoFinal);
+	        return resultadoFinal.isEmpty() ? "0" : resultadoFinal;
 
-			return cleanedPrice;
-
-		} catch (Exception e) {
-			System.err.println("Error al extraer precio de Más Online: " + e.getMessage());
-			// In case of any WebDriver exception, log it and return "0" as a fallback
-			return "0";
-		}
+	    } catch (Exception e) {
+	        System.err.println("Error al extraer precio: " + e.getMessage());
+	        return "0";
+	    }
 	}
+	/*
+	private String extractMasOnlinePrice(WebDriver driver) {
+	    try {
+	        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+	        WebElement priceElement = wait.until(
+	                ExpectedConditions.presenceOfElementLocated(By.cssSelector("span[class*='dynamicProductPrice']")));
 
+	        String priceText = priceElement.getText();
+	        System.out.println("[DEBUG-RAW] Precio original: " + priceText);
+
+	        // Normalización básica
+	        priceText = priceText.replace("$", "").replace(" ", "").trim();
+	        String resultadoFinal;
+
+	        // Caso 1: Formato con coma decimal (ej: "1.299,99" → "1299")
+	        if (priceText.contains(",")) {
+	            resultadoFinal = priceText.split(",")[0].replace(".", "");
+	            System.out.println("[DEBUG-FORMAT] Tipo: Formato con coma decimal");
+	        }
+	        // Caso 2: Precio con punto pero SIN decimales (ej: "1.299" → "1299")
+	        else if (priceText.matches("^\\d{1,3}(\\.\\d{3})+$")) { // Detecta 1.234 o 1.234.567
+	            resultadoFinal = priceText.replace(".", "");
+	            System.out.println("[DEBUG-FORMAT] Tipo: Puntos como separadores de miles");
+	        }
+	        // Caso 3: Formato ambiguo (ej: "18.45675" → "18456")
+	        else if (priceText.matches("\\d+\\.\\d{5,}")) { // 5+ dígitos después del punto
+	            resultadoFinal = priceText.replace(".", "").replaceAll("(\\d{2})$", "");
+	            System.out.println("[DEBUG-FORMAT] Tipo: Formato ambiguo (truncado)");
+	        }
+	        // Caso 4: Sin decimales ni separadores (ej: "1299")
+	        else {
+	            resultadoFinal = priceText;
+	            System.out.println("[DEBUG-FORMAT] Tipo: Sin formato especial");
+	        }
+
+	        // Validación final
+	        resultadoFinal = resultadoFinal.replaceAll("[^\\d]", "");
+	        System.out.println("[DEBUG-RESULT] Parte entera final: " + resultadoFinal);
+	        return resultadoFinal.isEmpty() ? "0" : resultadoFinal;
+
+	    } catch (Exception e) {
+	        System.err.println("Error al extraer precio: " + e.getMessage());
+	        return "0";
+	    }
+	}
+	
+	*/
+	
 	private void guardarPrecioFallback(Producto producto) {
 		try {
 			LocalDate hoy = LocalDate.now();

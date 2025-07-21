@@ -20,6 +20,8 @@ public class CanastaService implements ICanastaService {
     
     @Autowired
     private ProductoRepository productoRepository;
+        
+    
     
     @Override
     public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
@@ -50,8 +52,6 @@ public class CanastaService implements ICanastaService {
             List<Producto> productos = productoRepository.findBySupermercado(supermercado);
 
             List<Map<String, Object>> productosData = new ArrayList<>();
-            double totalSupermercado = 0.0;
-            
             for (Producto producto : productos) {
                 Optional<Precio> precioOpt = precioRepository.findLastScrapeadoByProducto(producto.getId());
                 if (precioOpt.isPresent()) {
@@ -60,68 +60,14 @@ public class CanastaService implements ICanastaService {
                     productoData.put("nombre", producto.getNombre());
                     productoData.put("precio", precio.getValor());
                     productosData.add(productoData);
-                    
-                    // Sumar al total del supermercado
-                    totalSupermercado += precio.getValor();
                 }
             }
-            
             supermercadoData.put("productos", productosData);
-            supermercadoData.put("total", totalSupermercado); // Agregar el total al supermercado
             dataSupermercados.add(supermercadoData);
         }
         respuesta.put("supermercados", dataSupermercados);
         return respuesta;
     }
-    
-    
-    
-    
-   /* @Override
-    public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
-        Map<String, Object> respuesta = new LinkedHashMap<>();
-
-        Optional<Precio> precioMasRecienteOpt = precioRepository.findTopByOrderByFechaDesc();
-        String ultimaFecha = precioMasRecienteOpt.map(precio -> precio.getFecha().toString()).orElse(null);
-
-        List<Map<String, Object>> fechas = new ArrayList<>();
-        Map<String, Object> fechaMap = new LinkedHashMap<>();
-        fechaMap.put("fecha", ultimaFecha);
-        fechas.add(fechaMap);
-
-        respuesta.put("fecha", fechas);
-
-        List<Supermercado> supermercados = productoRepository.findAll()
-                .stream().map(Producto::getSupermercado)
-                .distinct()
-                .sorted(Comparator.comparing(Supermercado::getId))
-                .collect(Collectors.toList());
-
-        List<Map<String, Object>> dataSupermercados = new ArrayList<>();
-
-        for (Supermercado supermercado : supermercados) {
-            Map<String, Object> supermercadoData = new LinkedHashMap<>();
-            supermercadoData.put("nombre", supermercado.getNombre());
-
-            List<Producto> productos = productoRepository.findBySupermercado(supermercado);
-
-            List<Map<String, Object>> productosData = new ArrayList<>();
-            for (Producto producto : productos) {
-                Optional<Precio> precioOpt = precioRepository.findLastScrapeadoByProducto(producto.getId());
-                if (precioOpt.isPresent()) {
-                    Precio precio = precioOpt.get();
-                    Map<String, Object> productoData = new LinkedHashMap<>();
-                    productoData.put("nombre", producto.getNombre());
-                    productoData.put("precio", precio.getValor());
-                    productosData.add(productoData);
-                }
-            }
-            supermercadoData.put("productos", productosData);
-            dataSupermercados.add(supermercadoData);
-        }
-        respuesta.put("supermercados", dataSupermercados);
-        return respuesta;
-    }*/
 
 
 

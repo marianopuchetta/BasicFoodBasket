@@ -174,8 +174,6 @@ public class GenericScraperService implements IScraperService {
 
 				String precioLimpio = extractPrice(precioElement, config, driver);
 				
-				System.out.println("[DEBUG] Precio procesado: " + precioLimpio + " (Original: " + precioElement.getText() + ")");
-
 				
 				Double valor = Double.parseDouble(precioLimpio);
 
@@ -235,7 +233,6 @@ public class GenericScraperService implements IScraperService {
 	                ExpectedConditions.presenceOfElementLocated(By.cssSelector("span[class*='dynamicProductPrice']")));
 
 	        String priceText = priceElement.getText().split("por kg")[0].trim(); // <- ¡Nuevo!
-	        System.out.println("[DEBUG-RAW] Precio original: " + priceText);
 
 	        // Normalización
 	        priceText = priceText.replace("$", "").replace(" ", "").trim();
@@ -244,26 +241,21 @@ public class GenericScraperService implements IScraperService {
 	        // Caso 1: Formato con coma decimal (ej: "1.299,99" → "1299")
 	        if (priceText.contains(",")) {
 	            resultadoFinal = priceText.split(",")[0].replace(".", "");
-	            System.out.println("[DEBUG-FORMAT] Tipo: Formato con coma decimal");
 	        }
 	        // Caso 2: Precio con punto pero SIN decimales (ej: "1.299" → "1299")
 	        else if (priceText.matches("^\\d{1,3}(\\.\\d{3})+$")) {
 	            resultadoFinal = priceText.replace(".", "");
-	            System.out.println("[DEBUG-FORMAT] Tipo: Puntos como separadores de miles");
 	        }
 	        // Caso 3: Formato ambiguo con 5+ dígitos tras punto (ej: "5.43920" → "5439")
 	        else if (priceText.matches("\\d+\\.\\d{5,}")) {
 	            resultadoFinal = priceText.replace(".", "").substring(0, priceText.length() - 3);
-	            System.out.println("[DEBUG-FORMAT] Tipo: Formato ambiguo (kg)");
 	        }
 	        // Caso 4: Sin formato especial (ej: "5439")
 	        else {
 	            resultadoFinal = priceText;
-	            System.out.println("[DEBUG-FORMAT] Tipo: Sin formato especial");
 	        }
 
 	        resultadoFinal = resultadoFinal.replaceAll("[^\\d]", "");
-	        System.out.println("[DEBUG-RESULT] Parte entera final: " + resultadoFinal);
 	        return resultadoFinal.isEmpty() ? "0" : resultadoFinal;
 
 	    } catch (Exception e) {

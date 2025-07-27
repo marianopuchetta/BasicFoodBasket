@@ -19,8 +19,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.Set;
 
 @Service
@@ -80,10 +78,8 @@ public class GenericScraperService implements IScraperService {
 					break;
 
 				try {
-					//List<Producto> productos = productoRepository.findBySupermercadoAndTipoCanasta(supermercado,tipoCanasta);
 		            List<Producto> productos = productoRepository.findBySupermercadoIdAndTipoCanasta(supermercado.getId(), tipoCanasta);
 
-					
 					if (productos.isEmpty()) {
 						System.out.printf("No hay productos para %s (%s)%n", supermercado.getNombre(), tipoCanasta);
 						continue;
@@ -112,25 +108,6 @@ public class GenericScraperService implements IScraperService {
 	private void scrapeProductos(WebDriver driver, List<Producto> productos, ScraperConfig config,
 			JavascriptExecutor js, String supermercadoSlug) {
 
-		Function<By, Boolean> clickElementRobustly = (locator) -> {
-			try {
-				WebDriverWait clickWait = new WebDriverWait(driver, Duration.ofSeconds(10));
-				WebElement element = clickWait.until(ExpectedConditions.elementToBeClickable(locator));
-				if (element.isDisplayed()) {
-					try {
-						element.click();
-						return true;
-					} catch (ElementClickInterceptedException e) {
-						js.executeScript("arguments[0].click();", element);
-						return true;
-					}
-				}
-			} catch (Exception e) {
-				return false;
-			}
-			return false;
-		};
-
 		for (Producto producto : productos) {
 			if (!scrapingEnabled)
 				break;
@@ -145,36 +122,15 @@ public class GenericScraperService implements IScraperService {
 				initialWait.until(webDriver -> ((JavascriptExecutor) webDriver)
 						.executeScript("return document.readyState").equals("complete"));
 
-				// MODIFICACION 2: Manejo de modales y banners de cookies para CADA producto
-				// Esto asegura que cualquier pop-up que aparezca al cargar una nueva URL sea cerrado.
-				if (config.getModalCloseSelector() != null) {
-					try {
-						clickElementRobustly.apply(By.cssSelector(config.getModalCloseSelector()));
-					} catch (Exception ignored) {
-						/* Ignorar si el modal no está presente o no es clickeable */ }
-				}
-				if (config.getCookieBannerSelector() != null) {
-					try {
-						clickElementRobustly.apply(By.cssSelector(config.getCookieBannerSelector()));
-					} catch (Exception ignored) {
-						/* Ignorar si el banner de cookies no está presente o no es clickeable */ }
-				}
-				if (config.getOverlaySelector() != null) {
-					try {
-						// Intentar cerrar el overlay si existe y no fue cubierto por el modal.
-						clickElementRobustly.apply(By.cssSelector(config.getOverlaySelector()));
-					} catch (Exception ignored) {
-						/* Ignorar si el overlay no está presente o no es clickeable */ }
-				}
+				// Se QUITA el MANEJO DE MODALES y banners de cookies y overlays
 
-				// Espera explícita para el precio (se mantiene el timeout de 30 segundos)
+				// Espera explícita para el precio (se mantiene el timeout de 20 segundos)
 				WebDriverWait waitPrecio = new WebDriverWait(driver, Duration.ofSeconds(20));
 				WebElement precioElement = waitPrecio.until(
 						ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector())));
 
 				String precioLimpio = extractPrice(precioElement, config, driver);
-				
-				
+
 				Double valor = Double.parseDouble(precioLimpio);
 
 				// Ajuste para DIA: Multiplica por 2 si corresponde
@@ -263,53 +219,6 @@ public class GenericScraperService implements IScraperService {
 	        return "0";
 	    }
 	}
-	/*
-	private String extractMasOnlinePrice(WebDriver driver) {
-	    try {
-	        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-	        WebElement priceElement = wait.until(
-	                ExpectedConditions.presenceOfElementLocated(By.cssSelector("span[class*='dynamicProductPrice']")));
-
-	        String priceText = priceElement.getText();
-	        System.out.println("[DEBUG-RAW] Precio original: " + priceText);
-
-	        // Normalización básica
-	        priceText = priceText.replace("$", "").replace(" ", "").trim();
-	        String resultadoFinal;
-
-	        // Caso 1: Formato con coma decimal (ej: "1.299,99" → "1299")
-	        if (priceText.contains(",")) {
-	            resultadoFinal = priceText.split(",")[0].replace(".", "");
-	            System.out.println("[DEBUG-FORMAT] Tipo: Formato con coma decimal");
-	        }
-	        // Caso 2: Precio con punto pero SIN decimales (ej: "1.299" → "1299")
-	        else if (priceText.matches("^\\d{1,3}(\\.\\d{3})+$")) { // Detecta 1.234 o 1.234.567
-	            resultadoFinal = priceText.replace(".", "");
-	            System.out.println("[DEBUG-FORMAT] Tipo: Puntos como separadores de miles");
-	        }
-	        // Caso 3: Formato ambiguo (ej: "18.45675" → "18456")
-	        else if (priceText.matches("\\d+\\.\\d{5,}")) { // 5+ dígitos después del punto
-	            resultadoFinal = priceText.replace(".", "").replaceAll("(\\d{2})$", "");
-	            System.out.println("[DEBUG-FORMAT] Tipo: Formato ambiguo (truncado)");
-	        }
-	        // Caso 4: Sin decimales ni separadores (ej: "1299")
-	        else {
-	            resultadoFinal = priceText;
-	            System.out.println("[DEBUG-FORMAT] Tipo: Sin formato especial");
-	        }
-
-	        // Validación final
-	        resultadoFinal = resultadoFinal.replaceAll("[^\\d]", "");
-	        System.out.println("[DEBUG-RESULT] Parte entera final: " + resultadoFinal);
-	        return resultadoFinal.isEmpty() ? "0" : resultadoFinal;
-
-	    } catch (Exception e) {
-	        System.err.println("Error al extraer precio: " + e.getMessage());
-	        return "0";
-	    }
-	}
-	
-	*/
 	
 	private void guardarPrecioFallback(Producto producto) {
 		try {

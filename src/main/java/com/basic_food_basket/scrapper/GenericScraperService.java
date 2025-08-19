@@ -78,7 +78,8 @@ public class GenericScraperService implements IScraperService {
 					break;
 
 				try {
-		            List<Producto> productos = productoRepository.findBySupermercadoIdAndTipoCanasta(supermercado.getId(), tipoCanasta);
+					List<Producto> productos = productoRepository
+							.findBySupermercadoIdAndTipoCanasta(supermercado.getId(), tipoCanasta);
 
 					if (productos.isEmpty()) {
 						System.out.printf("No hay productos para %s (%s)%n", supermercado.getNombre(), tipoCanasta);
@@ -115,7 +116,7 @@ public class GenericScraperService implements IScraperService {
 			try {
 				System.out.println("\n--- Procesando producto: " + producto.getNombre() + " ---");
 				driver.get(producto.getUrl());
-				
+
 				WebDriverWait initialWait = new WebDriverWait(driver, Duration.ofSeconds(config.getTimeoutSeconds()));
 				initialWait.until(webDriver -> ((JavascriptExecutor) webDriver)
 						.executeScript("return document.readyState").equals("complete"));
@@ -125,14 +126,12 @@ public class GenericScraperService implements IScraperService {
 
 				try {
 					precioElement = waitPrecio.until(
-						ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector()))
-					);
+							ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector())));
 				} catch (TimeoutException e1) {
 					if ("disco".equalsIgnoreCase(supermercadoSlug)) {
 						try {
-							precioElement = waitPrecio.until(
-								ExpectedConditions.visibilityOfElementLocated(By.cssSelector("span[class*='sellingPrice']"))
-							);
+							precioElement = waitPrecio.until(ExpectedConditions
+									.visibilityOfElementLocated(By.cssSelector("span[class*='sellingPrice']")));
 							System.out.println("Precio encontrado usando selector alternativo para Disco.");
 						} catch (TimeoutException e2) {
 							System.err.println("No se encontró el precio con ninguno de los selectores para Disco.");
@@ -180,117 +179,116 @@ public class GenericScraperService implements IScraperService {
 		return DIA_DUPLICATE_PRICE_PRODUCTS.contains(nombreProducto.trim());
 	}
 
-	/*
 	private String extractPrice(WebElement priceElement, ScraperConfig config, WebDriver driver) {
-	    if ("jumbo".equals(config.getSupermarketSlug())) {
-	        List<WebElement> precios = driver.findElements(By.cssSelector(config.getPriceSelector()));
-	        double minPrecio = Double.MAX_VALUE;
-	        for (WebElement elem : precios) {
-	            String texto = elem.getText().replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	            try {
-	                double val = Double.parseDouble(texto);
-	                if (val < minPrecio && val > 0) {
-	                    minPrecio = val;
-	                }
-	            } catch (NumberFormatException ignored) {}
-	        }
-	        return minPrecio != Double.MAX_VALUE ? String.valueOf(minPrecio) : "0";
-	    } else if ("mas-online".equals(config.getSupermarketSlug())) {
-	        WebDriver d = ((RemoteWebElement) priceElement).getWrappedDriver();
-	        return extractMasOnlinePrice(d);
-	    } else {
-	        String textoPrecio = priceElement.getText();
-	        return textoPrecio.replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	    }
+		if ("jumbo".equals(config.getSupermarketSlug())) {
+			// 1. Buscar precio real (sin rebaja)
+			List<WebElement> reales = driver
+					.findElements(By.cssSelector("div.jumboargentinaio-store-theme-2t-mVsKNpKjmCAEM_AMCQH"));
+			if (!reales.isEmpty()) {
+				String texto = reales.get(0).getText().replace("$", "").replace(".", "").replace(",", ".")
+						.replaceAll("\\s", "").trim();
+				try {
+					double val = Double.parseDouble(texto);
+					if (val > 0)
+						return String.valueOf(val);
+				} catch (NumberFormatException ignored) {
+				}
+			}
+			// 2. Si no hay precio real, buscar precio rebajado (oferta)
+			List<WebElement> rebajas = driver.findElements(By
+					.cssSelector("div.jumboargentinaio-store-theme-1dCOMij_MzTzZOCohX1K7w.vtex-price-format-gallery"));
+			if (!rebajas.isEmpty()) {
+				String texto = rebajas.get(0).getText().replace("$", "").replace(".", "").replace(",", ".")
+						.replaceAll("\\s", "").trim();
+				try {
+					double val = Double.parseDouble(texto);
+					if (val > 0)
+						return String.valueOf(val);
+				} catch (NumberFormatException ignored) {
+				}
+			}
+			// Si no encontró ningún precio, devuelve "0"
+			return "0";
+		}
+
+		else if ("disco".equals(config.getSupermarketSlug())) {
+			// 1. Buscar por id
+			List<WebElement> porId = driver.findElements(By.cssSelector("#priceContainer"));
+			if (!porId.isEmpty()) {
+				String texto = porId.get(0).getText().replace("$", "").replace(".", "").replace(",", ".")
+						.replaceAll("\\s", "").trim();
+				try {
+					double val = Double.parseDouble(texto);
+					if (val > 0)
+						return String.valueOf(val);
+				} catch (NumberFormatException ignored) {
+				}
+			}
+			// 2. Buscar por clase con oferta
+			List<WebElement> realesConOferta = driver
+					.findElements(By.cssSelector("div.discoargentina-store-theme-2t-mVsKNpKjmCAEM_AMCQH"));
+			if (!realesConOferta.isEmpty()) {
+				String texto = realesConOferta.get(0).getText().replace("$", "").replace(".", "").replace(",", ".")
+						.replaceAll("\\s", "").trim();
+				try {
+					double val = Double.parseDouble(texto);
+					if (val > 0)
+						return String.valueOf(val);
+				} catch (NumberFormatException ignored) {
+				}
+			}
+			// 3. Buscar por clase sin oferta
+			List<WebElement> realesSinOferta = driver.findElements(By.cssSelector(
+					"div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w:not(.vtex-price-format-gallery)"));
+			if (!realesSinOferta.isEmpty()) {
+				String texto = realesSinOferta.get(0).getText().replace("$", "").replace(".", "").replace(",", ".")
+						.replaceAll("\\s", "").trim();
+				try {
+					double val = Double.parseDouble(texto);
+					if (val > 0)
+						return String.valueOf(val);
+				} catch (NumberFormatException ignored) {
+				}
+			}
+			// Si no encontró ningún precio real, devuelve "0" y se usa el fallback del día
+			// anterior.
+			return "0";
+		} else if ("mas-online".equals(config.getSupermarketSlug())) {
+			WebDriver d = ((RemoteWebElement) priceElement).getWrappedDriver();
+			return extractMasOnlinePrice(d);
+		} else {
+			String textoPrecio = priceElement.getText();
+			return textoPrecio.replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
+		}
+
 	}
-	*/
-	private String extractPrice(WebElement priceElement, ScraperConfig config, WebDriver driver) {
-	    if ("jumbo".equals(config.getSupermarketSlug())) {
-	        List<WebElement> precios = driver.findElements(By.cssSelector(config.getPriceSelector()));
-	        double minPrecio = Double.MAX_VALUE;
-	        for (WebElement elem : precios) {
-	            String texto = elem.getText().replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	            try {
-	                double val = Double.parseDouble(texto);
-	                if (val < minPrecio && val > 0) {
-	                    minPrecio = val;
-	                }
-	            } catch (NumberFormatException ignored) {}
-	        }
-	        return minPrecio != Double.MAX_VALUE ? String.valueOf(minPrecio) : "0";
-	    } else if ("disco".equals(config.getSupermarketSlug())) {
-	        // 1. Precio real con oferta: div.discoargentina-store-theme-2t-mVsKNpKjmCAEM_AMCQH
-	        List<WebElement> realesConOferta = driver.findElements(By.cssSelector("div.discoargentina-store-theme-2t-mVsKNpKjmCAEM_AMCQH"));
-	        if (!realesConOferta.isEmpty()) {
-	            String texto = realesConOferta.get(0).getText().replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	            try {
-	                double val = Double.parseDouble(texto);
-	                if (val > 0) return String.valueOf(val);
-	            } catch (NumberFormatException ignored) {}
-	        }
-	        // 2. Precio real sin oferta: div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w (sin clase .vtex-price-format-gallery)
-	        List<WebElement> realesSinOferta = driver.findElements(By.cssSelector("div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w:not(.vtex-price-format-gallery)"));
-	        if (!realesSinOferta.isEmpty()) {
-	            String texto = realesSinOferta.get(0).getText().replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	            try {
-	                double val = Double.parseDouble(texto);
-	                if (val > 0) return String.valueOf(val);
-	            } catch (NumberFormatException ignored) {}
-	        }
-	        // 3. Como fallback, precio de rebaja/oferta
-	        List<WebElement> rebajas = driver.findElements(By.cssSelector("div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w.vtex-price-format-gallery"));
-	        double minRebaja = Double.MAX_VALUE;
-	        for (WebElement elem : rebajas) {
-	            String texto = elem.getText().replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	            try {
-	                double val = Double.parseDouble(texto);
-	                if (val < minRebaja && val > 0) {
-	                    minRebaja = val;
-	                }
-	            } catch (NumberFormatException ignored) {}
-	        }
-	        return minRebaja != Double.MAX_VALUE ? String.valueOf(minRebaja) : "0";
-	    } else if ("mas-online".equals(config.getSupermarketSlug())) {
-	        WebDriver d = ((RemoteWebElement) priceElement).getWrappedDriver();
-	        return extractMasOnlinePrice(d);
-	    } else {
-	        String textoPrecio = priceElement.getText();
-	        return textoPrecio.replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	    }
-	}
+
 	private String extractMasOnlinePrice(WebDriver driver) {
-	    try {
-	        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
-	        WebElement priceElement = wait.until(
-	                ExpectedConditions.presenceOfElementLocated(By.cssSelector("span[class*='dynamicProductPrice']")));
+		try {
+			WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+			List<WebElement> containers = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
+					By.cssSelector("span.valtech-gdn-dynamic-product-1-x-currencyContainer")));
+			// Si hay más de uno, priorizá el segundo (precio real). Si solo hay uno, usá
+			// ese.
+			WebElement priceContainer = containers.size() > 1 ? containers.get(1) : containers.get(0);
 
-	        String priceText = priceElement.getText().split("por kg")[0].trim();
-
-	        priceText = priceText.replace("$", "").replace(" ", "").trim();
-	        String resultadoFinal;
-
-	        if (priceText.contains(",")) {
-	            resultadoFinal = priceText.split(",")[0].replace(".", "");
-	        }
-	        else if (priceText.matches("^\\d{1,3}(\\.\\d{3})+$")) {
-	            resultadoFinal = priceText.replace(".", "");
-	        }
-	        else if (priceText.matches("\\d+\\.\\d{5,}")) {
-	            resultadoFinal = priceText.replace(".", "").substring(0, priceText.length() - 3);
-	        }
-	        else {
-	            resultadoFinal = priceText;
-	        }
-
-	        resultadoFinal = resultadoFinal.replaceAll("[^\\d]", "");
-	        return resultadoFinal.isEmpty() ? "0" : resultadoFinal;
-
-	    } catch (Exception e) {
-	        System.err.println("Error al extraer precio: " + e.getMessage());
-	        return "0";
-	    }
+			StringBuilder precioBuilder = new StringBuilder();
+			List<WebElement> partes = priceContainer.findElements(By.xpath("./span"));
+			for (WebElement parte : partes) {
+				String clase = parte.getAttribute("class");
+				String texto = parte.getText().replaceAll("[^\\d]", "");
+				if (clase.contains("currencyInteger") || clase.contains("currencyGroup")) {
+					precioBuilder.append(texto);
+				}
+			}
+			// El resultado será algo como "2249" para "2.249,00"
+			return precioBuilder.toString().isEmpty() ? "0" : precioBuilder.toString();
+		} catch (Exception e) {
+			System.err.println("Error al extraer precio MasOnline: " + e.getMessage());
+			return "0";
+		}
 	}
-	
+
 	private void guardarPrecioFallback(Producto producto) {
 		try {
 			LocalDate hoy = LocalDate.now();

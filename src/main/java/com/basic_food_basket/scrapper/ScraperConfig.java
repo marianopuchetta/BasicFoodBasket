@@ -58,22 +58,13 @@ public class ScraperConfig {
             case "disco":
                 return new ScraperConfig(
                     "disco",
-                    "div.discoargentina-store-theme-2t-mVsKNpKjmCAEM_AMCQH,div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w:not(.vtex-price-format-gallery),div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w.vtex-price-format-gallery",
+                    "#priceContainer,div.discoargentina-store-theme-2t-mVsKNpKjmCAEM_AMCQH,div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w:not(.vtex-price-format-gallery),div.discoargentina-store-theme-1dCOMij_MzTzZOCohX1K7w.vtex-price-format-gallery",
                     "button.modal-close",
                     "#btn-cookie-allow",
                     "div.overlay",
                     15
                 );
-                /*
-            case "disco":
-                return new ScraperConfig(
-                    "disco",
-                    "#priceContainer",
-                    "button.modal-close",
-                    "#btn-cookie-allow",
-                    "div.overlay",
-                    15
-                );*/
+              
             case "jumbo":
                 return new ScraperConfig(
                     "jumbo",
@@ -83,10 +74,11 @@ public class ScraperConfig {
                     null,
                     20
                 );
+              
             case "mas-online":
                 return new ScraperConfig(
                     "mas-online",
-                    "span[class*='dynamicProductPrice']",
+                    "span.valtech-gdn-dynamic-product-1-x-currencyContainer",
                     "button.modal-close",
                     "#cookie-consent-button",
                     "div.overlay",

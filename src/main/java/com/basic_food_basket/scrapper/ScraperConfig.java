@@ -44,7 +44,19 @@ public class ScraperConfig {
 
     public static ScraperConfig getConfigFor(String supermarketSlug) {
         switch(supermarketSlug.toLowerCase()) {
-            case "coto":
+        case "coto":
+            // El selector para el precio puede ser "span.sale-price" (oferta) o "var.price.h3.ng-star-inserted" (precio normal)
+            // Se recomienda manejar ambos en el scraper, pero aquí dejamos el principal para referencia
+            return new ScraperConfig(
+                "coto",
+                "div.mt-2.small.ng-star-inserted, span.sale-price, var.price.h3.ng-star-inserted",
+                "button.close-modal",
+                "#cookie-banner-accept",
+                ".modal-backdrop",
+                20
+            );
+        /*   
+        case "coto":
                 // El selector para el precio puede ser "span.sale-price" (oferta) o "var.price.h3.ng-star-inserted" (precio normal)
                 // Se recomienda manejar ambos en el scraper, pero aquí dejamos el principal para referencia
                 return new ScraperConfig(
@@ -55,6 +67,7 @@ public class ScraperConfig {
                         ".modal-backdrop",
                         20
                 );
+                */
             case "disco":
                 return new ScraperConfig(
                     "disco",

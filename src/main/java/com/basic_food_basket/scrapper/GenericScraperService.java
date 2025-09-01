@@ -125,8 +125,10 @@ public class GenericScraperService implements IScraperService {
 				WebElement precioElement = null;
 
 				try {
+								
 					precioElement = waitPrecio.until(
 							ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector())));
+							
 				} catch (TimeoutException e1) {
 					if ("disco".equalsIgnoreCase(supermercadoSlug)) {
 						try {
@@ -209,8 +211,57 @@ public class GenericScraperService implements IScraperService {
 			}
 			// Si no encontró ningún precio, devuelve "0"
 			return "0";
-		}
-
+		}  else if ("coto".equals(config.getSupermarketSlug())) {
+	        // 1. Buscar precio regular
+	        List<WebElement> preciosRegulares = driver.findElements(By.cssSelector("div.mt-2.small.ng-star-inserted"));
+	        for (WebElement elem : preciosRegulares) {
+	            String textoCompleto = elem.getText();
+	            if (textoCompleto.contains("Precio regular")) {
+	                // Extraer solo el número de precio (puede venir con espacios)
+	                String texto = textoCompleto
+	                    .replace("Precio regular :", "")
+	                    .replace("$", "")
+	                    .replace(".", "")
+	                    .replace(",", ".")
+	                    .replaceAll("\\s", "")
+	                    .trim();
+	                try {
+	                    double val = Double.parseDouble(texto);
+	                    if (val > 0) return String.valueOf(val);
+	                } catch (NumberFormatException ignored) {}
+	            }
+	        }
+	        // 2. Fallback: precio de oferta
+	        List<WebElement> preciosOferta = driver.findElements(By.cssSelector("span.sale-price"));
+	        for (WebElement elem : preciosOferta) {
+	            String texto = elem.getText()
+	                .replace("$", "")
+	                .replace(".", "")
+	                .replace(",", ".")
+	                .replaceAll("\\s", "")
+	                .trim();
+	            try {
+	                double val = Double.parseDouble(texto);
+	                if (val > 0) return String.valueOf(val);
+	            } catch (NumberFormatException ignored) {}
+	        }
+	        // 3. Fallback: precio normal antiguo
+	        List<WebElement> preciosAntiguos = driver.findElements(By.cssSelector("var.price.h3.ng-star-inserted"));
+	        for (WebElement elem : preciosAntiguos) {
+	            String texto = elem.getText()
+	                .replace("$", "")
+	                .replace(".", "")
+	                .replace(",", ".")
+	                .replaceAll("\\s", "")
+	                .trim();
+	            try {
+	                double val = Double.parseDouble(texto);
+	                if (val > 0) return String.valueOf(val);
+	            } catch (NumberFormatException ignored) {}
+	        }
+	        // Si no encontró ningún precio, devuelve "0"
+	        return "0";
+	    }
 		else if ("disco".equals(config.getSupermarketSlug())) {
 			// 1. Buscar por id
 			List<WebElement> porId = driver.findElements(By.cssSelector("#priceContainer"));
@@ -263,6 +314,7 @@ public class GenericScraperService implements IScraperService {
 
 	}
 
+	/*
 	private String extractMasOnlinePrice(WebDriver driver) {
 		try {
 			WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
@@ -287,6 +339,43 @@ public class GenericScraperService implements IScraperService {
 			System.err.println("Error al extraer precio MasOnline: " + e.getMessage());
 			return "0";
 		}
+	}
+	*/
+	private String extractMasOnlinePrice(WebDriver driver) {
+	    try {
+	        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+	        
+	        // 1. Espera a que TODOS los posibles contenedores de precio estén presentes.
+	        //    Esto es clave para productos en oferta, que suelen tener dos contenedores (oferta y regular).
+	        List<WebElement> priceContainers = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
+	                By.cssSelector("span.valtech-gdn-dynamic-product-1-x-currencyContainer")));
+
+	        // 2. Si no se encuentra ningún contenedor, devuelve "0" para que se use el fallback.
+	        if (priceContainers.isEmpty()) {
+	            System.err.println("No se encontró ningún contenedor de precio para MasOnline.");
+	            return "0";
+	        }
+
+	        // 3. Determina qué contenedor usar.
+	        //    Si hay más de un contenedor, el segundo suele ser el precio regular (sin oferta).
+	        //    Si solo hay uno, es el único precio disponible.
+	        WebElement targetPriceElement = priceContainers.size() > 1 ? priceContainers.get(1) : priceContainers.get(0);
+
+	        // 4. Obtiene el texto completo del contenedor seleccionado. Ej: "$ 1.679,00"
+	        String textoCompleto = targetPriceElement.getText();
+
+	        // 5. Limpia el texto para quedarse con la parte entera del precio.
+	        //    Divide por la coma para descartar los centavos y luego elimina cualquier carácter que no sea un dígito.
+	        String precioLimpio = textoCompleto.split(",")[0].replaceAll("[^\\d]", "");
+
+	        // 6. Devuelve el resultado. Si por alguna razón queda vacío, devuelve "0".
+	        return precioLimpio.isEmpty() ? "0" : precioLimpio;
+
+	    } catch (Exception e) {
+	        // Si algo falla durante la espera o el procesamiento, se registra el error y se devuelve "0".
+	        System.err.println("Error al extraer precio MasOnline: " + e.getMessage());
+	        return "0";
+	    }
 	}
 
 	private void guardarPrecioFallback(Producto producto) {

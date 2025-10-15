@@ -55,19 +55,7 @@ public class ScraperConfig {
                 ".modal-backdrop",
                 20
             );
-        /*   
-        case "coto":
-                // El selector para el precio puede ser "span.sale-price" (oferta) o "var.price.h3.ng-star-inserted" (precio normal)
-                // Se recomienda manejar ambos en el scraper, pero aquí dejamos el principal para referencia
-                return new ScraperConfig(
-                		"coto",
-                        "var.price.h3",
-                        "button.close-modal",
-                        "#cookie-banner-accept",
-                        ".modal-backdrop",
-                        20
-                );
-                */
+  
             case "disco":
                 return new ScraperConfig(
                     "disco",
@@ -75,7 +63,7 @@ public class ScraperConfig {
                     "button.modal-close",
                     "#btn-cookie-allow",
                     "div.overlay",
-                    15
+                    20
                 );
               
             case "jumbo":

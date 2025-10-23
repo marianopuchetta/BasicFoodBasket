@@ -146,10 +146,11 @@ public class GenericScraperService implements IScraperService {
 				break;
 
 			try {
-				System.out.println("\n--- Procesando producto: " + producto.getNombre() + " ---");
+                // Se agrega el ID al log para facilitar la depuración
+				System.out.println("\n--- Procesando producto: " + producto.getNombre() + " (ID: " + producto.getId() + ") ---");
 				driver.get(producto.getUrl());
 
-// Chequeo inmediato de "sin stock" para Disco
+                // Chequeo inmediato de "sin stock" para Disco
 				if ("disco".equalsIgnoreCase(supermercadoSlug) && isProductoSinStockDisco(driver)) {
 					System.out.println("Producto sin stock, usando precio del día anterior.");
 					guardarPrecioFallback(producto);
@@ -158,16 +159,65 @@ public class GenericScraperService implements IScraperService {
 
 				String precioLimpio;
 
-				if ("disco".equalsIgnoreCase(supermercadoSlug)) {
+                // --- INICIO DE MODIFICACIÓN JUMBO ---
+                // Lógica especial para Jumbo productos 471 y 472
+                if ("jumbo".equalsIgnoreCase(supermercadoSlug) &&
+                    (producto.getId() == 471 || producto.getId() == 472)) {
+
+                    System.out.println("Aplicando lógica de scraping especial para Jumbo ID: " + producto.getId());
+                    WebDriverWait waitJumbo = new WebDriverWait(driver, Duration.ofSeconds(30));
+                    
+                    // Selector CSS para la clase 'vtex-custom-unit-price' que contiene el precio por kg
+                    By jumboSpecialSelector = By.cssSelector("span.vtex-custom-unit-price"); 
+                    
+                    WebElement precioElement = waitJumbo.until(
+                        ExpectedConditions.visibilityOfElementLocated(jumboSpecialSelector)
+                    );
+
+                    // Extraer el texto del span padre, excluyendo el div hijo
+                    String allText = precioElement.getText();
+                    String parentTextOnly;
+                    try {
+                         // Busca el div hijo para excluir su texto
+                         WebElement childDiv = precioElement.findElement(By.cssSelector("div[class*='jumboargentinaio-store-theme']"));
+                         String childText = childDiv.getText();
+                         parentTextOnly = allText.replace(childText, "").trim();
+                    } catch (NoSuchElementException e) {
+                         // Si no hay div hijo (o no se encuentra), usar todo el texto
+                         parentTextOnly = allText.trim();
+                    }
+                    
+                    // parentTextOnly debería ser algo como "Precio regular x kg.: $11.498"
+                    
+                    // Extraer el número después del '$'
+                    String[] parts = parentTextOnly.split("\\$");
+                    if (parts.length > 1) {
+                        String precioStr = parts[parts.length - 1].trim(); // Obtiene "11.498" o "25.998"
+                        
+                        // Aplicar la lógica de limpieza estándar
+                        precioLimpio = precioStr.replace(".", "")
+                            .replace(",", ".")
+                            .replaceAll("\\s", "")
+                            .trim(); // Se convierte en "11498" o "25998"
+                    } else {
+                        throw new RuntimeException("No se pudo parsear el precio especial de Jumbo (no se encontró '$'): " + parentTextOnly);
+                    }
+                
+                // Lógica existente para Disco
+				} else if ("disco".equalsIgnoreCase(supermercadoSlug)) {
 					precioLimpio = extractDiscoPrice(driver);
+                
+                // Lógica existente para todos los demás (incluidos otros productos de Jumbo)
 				} else {
 					WebDriverWait waitPrecio = new WebDriverWait(driver, Duration.ofSeconds(30));
 					WebElement precioElement = waitPrecio.until(
 							ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector())));
 					precioLimpio = extractPrice(precioElement, config, driver);
 				}
+                // --- FIN DE MODIFICACIÓN ---
 
-// Validar precio antes de parsear y guardar
+
+                // Validar precio antes de parsear y guardar
 				if (precioLimpio == null || precioLimpio.isEmpty()) {
 					System.out.println("Precio vacío, usando fallback");
 					guardarPrecioFallback(producto);
@@ -177,8 +227,9 @@ public class GenericScraperService implements IScraperService {
 				Double valor;
 				try {
 					valor = Double.parseDouble(precioLimpio);
-					if (valor == 0) {
-						System.out.println("Precio es 0, usando fallback");
+                    // Modificación: cambiado a <= 0 para capturar también precios negativos
+					if (valor <= 0) { 
+						System.out.println("Precio es 0 o inválido, usando fallback");
 						guardarPrecioFallback(producto);
 						continue;
 					}
@@ -188,7 +239,7 @@ public class GenericScraperService implements IScraperService {
 					continue;
 				}
 
-// Ajuste para DIA: Multiplica por 2 si corresponde
+                // Ajuste para DIA: Multiplica por 2 si corresponde
 				if ("dia".equalsIgnoreCase(supermercadoSlug) && shouldDoubleDiaProduct(producto.getNombre())) {
 					valor = valor * 2;
 				}
@@ -196,59 +247,64 @@ public class GenericScraperService implements IScraperService {
 				guardarPrecio(producto, valor);
 
 			} catch (Exception e) {
-				System.err.println("Error procesando producto: " + producto.getNombre());
+				System.err.println("Error procesando producto: " + producto.getNombre() + " (ID: " + producto.getId() + ")");
 				e.printStackTrace();
 				guardarPrecioFallback(producto);
 			}
 		}
 	}
-	private String extractDiscoPrice(WebDriver driver) {
-	    try {
-	        WebElement priceContainer = driver.findElement(By.cssSelector("#priceContainer"));
-	        String offerText = priceContainer.getText();
-	        double offerValue = parseDiscoPrice(offerText);
-	        System.out.println("[DEBUG] Oferta (priceContainer): '" + offerText + "' => " + offerValue);
 
-	        // Intentar encontrar el <span> ancestro y regular tachado
-	        try {
-	            WebElement spanContainer = priceContainer.findElement(By.xpath("./ancestor::span[1]"));
-	            List<WebElement> regularDivs = spanContainer.findElements(By.xpath("following-sibling::div[contains(text(), '$')]"));
+	// --- MÉTODOS EXISTENTES (SIN CAMBIOS) ---
 
-	            if (!regularDivs.isEmpty()) {
-	                String regText = regularDivs.get(0).getText();
-	                double regVal = parseDiscoPrice(regText);
-	                System.out.println("[DEBUG] Regular tachado: '" + regText + "' => " + regVal);
-	                if (regVal > offerValue) {
-	                    System.out.println("[DEBUG] Seleccionado precio REGULAR: '" + regText + "' => " + regVal);
-	                    return String.valueOf(regVal);
-	                }
-	            }
-	        } catch (Exception ex) {
-	            // No hay <span> ancestro o regular tachado, usar priceContainer
-	            System.out.println("[DEBUG] No se encontró regular tachado, uso priceContainer.");
-	        }
+    private String extractDiscoPrice(WebDriver driver) {
+        try {
+    		Thread.sleep(3000);
+            WebElement priceContainer = driver.findElement(By.cssSelector("#priceContainer"));
+            String offerText = priceContainer.getText();
+            double offerValue = parseDiscoPrice(offerText);
+            System.out.println("[DEBUG] Oferta (priceContainer): '" + offerText + "' => " + offerValue);
 
-	        // Solo llega aquí si no hay regular tachado, usar offer/único
-	        System.out.println("[DEBUG] Seleccionado precio OFERTA/ÚNICO: '" + offerText + "' => " + offerValue);
-	        return String.valueOf(offerValue);
+            // Intentar encontrar el <span> ancestro y regular tachado
+            try {
+                WebElement spanContainer = priceContainer.findElement(By.xpath("./ancestor::span[1]"));
+                List<WebElement> regularDivs = spanContainer.findElements(By.xpath("following-sibling::div[contains(text(), '$')]"));
 
-	    } catch (Exception e) {
-	        System.err.println("[DEBUG] Error en extractDiscoPrice: " + e.getMessage());
-	        throw new RuntimeException("No se pudo extraer el precio de Disco", e);
-	    }
-	}
-	private double parseDiscoPrice(String s) {
-	    try {
-	        if (s == null) return 0;
-	        String limpio = s.replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
-	        double resultado = Double.parseDouble(limpio);
-	        System.out.println("[DEBUG] parseDiscoPrice: '" + s + "' -> '" + limpio + "' -> " + resultado);
-	        return resultado;
-	    } catch (Exception e) {
-	        System.err.println("[DEBUG] parseDiscoPrice error para '" + s + "'");
-	        return 0;
-	    }
-	}
+                if (!regularDivs.isEmpty()) {
+                    String regText = regularDivs.get(0).getText();
+                    double regVal = parseDiscoPrice(regText);
+                    System.out.println("[DEBUG] Regular tachado: '" + regText + "' => " + regVal);
+                    if (regVal > offerValue) {
+                        System.out.println("[DEBUG] Seleccionado precio REGULAR: '" + regText + "' => " + regVal);
+                        return String.valueOf(regVal);
+                    }
+                }
+            } catch (Exception ex) {
+                // No hay <span> ancestro o regular tachado, usar priceContainer
+                System.out.println("[DEBUG] No se encontró regular tachado, uso priceContainer.");
+            }
+
+            // Solo llega aquí si no hay regular tachado, usar offer/único
+            System.out.println("[DEBUG] Seleccionado precio OFERTA/ÚNICO: '" + offerText + "' => " + offerValue);
+            return String.valueOf(offerValue);
+
+        } catch (Exception e) {
+            System.err.println("[DEBUG] Error en extractDiscoPrice: " + e.getMessage());
+            throw new RuntimeException("No se pudo extraer el precio de Disco", e);
+        }
+    }
+
+    private double parseDiscoPrice(String s) {
+        try {
+            if (s == null) return 0;
+            String limpio = s.replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
+            double resultado = Double.parseDouble(limpio);
+            System.out.println("[DEBUG] parseDiscoPrice: '" + s + "' -> '" + limpio + "' -> " + resultado);
+            return resultado;
+        } catch (Exception e) {
+            System.err.println("[DEBUG] parseDiscoPrice error para '" + s + "'");
+            return 0;
+        }
+    }
 
 
 	private boolean shouldDoubleDiaProduct(String nombreProducto) {
@@ -257,6 +313,7 @@ public class GenericScraperService implements IScraperService {
 
 	private String extractPrice(WebElement priceElement, ScraperConfig config, WebDriver driver) {
 		if ("jumbo".equals(config.getSupermarketSlug())) {
+            // Esta lógica ahora se aplica a todos los productos de Jumbo EXCEPTO 471 y 472
 			// 1. Buscar precio real (sin rebaja)
 			List<WebElement> reales = driver
 					.findElements(By.cssSelector("div.jumboargentinaio-store-theme-2t-mVsKNpKjmCAEM_AMCQH"));
@@ -286,6 +343,12 @@ public class GenericScraperService implements IScraperService {
 			// Si no encontró ningún precio, devuelve "0"
 			return "0";
 		} else if ("coto".equals(config.getSupermarketSlug())) {
+			try {
+				Thread.sleep(3000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			// 1. Buscar precio regular
 			List<WebElement> preciosRegulares = driver.findElements(By.cssSelector("div.mt-2.small.ng-star-inserted"));
 			for (WebElement elem : preciosRegulares) {
@@ -329,6 +392,12 @@ public class GenericScraperService implements IScraperService {
 			// Si no encontró ningún precio, devuelve "0"
 			return "0";
 		} else if ("disco".equals(config.getSupermarketSlug())) {
+			try {
+				Thread.sleep(3000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			// 1. Buscar por id
 			List<WebElement> porId = driver.findElements(By.cssSelector("#priceContainer"));
 			if (!porId.isEmpty()) {

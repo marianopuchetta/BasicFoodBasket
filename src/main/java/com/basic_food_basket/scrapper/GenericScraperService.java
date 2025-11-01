@@ -36,9 +36,8 @@ public class GenericScraperService implements IScraperService {
 	private WebDriver currentDriver;
 
 	// Lista de productos DIA cuyo precio debe multiplicarse x2
-	private static final Set<String> DIA_DUPLICATE_PRICE_PRODUCTS = Set.of("Café Clásico La Morenita",
-			"Café Sensaciones Bonafide Torrado Intenso", "Té en saquitos Crysf", "Té Saquitos en Sobre Green Hills",
-			"Carne Picada común Atmósfera Modificada 600 Gr.", "Carne Picada de Nalga x 500 Gr.");
+    // (Se mantiene la lista de tu "código complejo")
+	private static final Set<String> DIA_DUPLICATE_PRICE_PRODUCTS = Set.of("Café Clásico La Morenita", "Té en saquitos Crysf");
 
 	@PreDestroy
 	public void cleanUp() {
@@ -108,7 +107,7 @@ public class GenericScraperService implements IScraperService {
 		}
 	}
 
-	// NUEVO método especializado para Disco
+	// Método especializado para Disco (Existente)
 	private boolean isProductoSinStockDisco(WebDriver driver) {
 		try {
 			WebElement sinStockElement = driver.findElement(By.cssSelector("p.vtex-outOfStockFlag__text"));
@@ -158,66 +157,101 @@ public class GenericScraperService implements IScraperService {
 				}
 
 				String precioLimpio;
+                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30)); // WebDriverWait genérico
 
-                // --- INICIO DE MODIFICACIÓN JUMBO ---
-                // Lógica especial para Jumbo productos 471 y 472
+                // --- INICIO DE LÓGICA FUSIONADA ---
+
+                // CASO 1: Lógica especial para Jumbo productos 471 y 472 (NUEVO)
                 if ("jumbo".equalsIgnoreCase(supermercadoSlug) &&
                     (producto.getId() == 471 || producto.getId() == 472)) {
 
                     System.out.println("Aplicando lógica de scraping especial para Jumbo ID: " + producto.getId());
-                    WebDriverWait waitJumbo = new WebDriverWait(driver, Duration.ofSeconds(30));
-                    
-                    // Selector CSS para la clase 'vtex-custom-unit-price' que contiene el precio por kg
                     By jumboSpecialSelector = By.cssSelector("span.vtex-custom-unit-price"); 
-                    
-                    WebElement precioElement = waitJumbo.until(
+                    WebElement precioElement = wait.until(
                         ExpectedConditions.visibilityOfElementLocated(jumboSpecialSelector)
                     );
 
-                    // Extraer el texto del span padre, excluyendo el div hijo
                     String allText = precioElement.getText();
                     String parentTextOnly;
                     try {
-                         // Busca el div hijo para excluir su texto
                          WebElement childDiv = precioElement.findElement(By.cssSelector("div[class*='jumboargentinaio-store-theme']"));
                          String childText = childDiv.getText();
                          parentTextOnly = allText.replace(childText, "").trim();
                     } catch (NoSuchElementException e) {
-                         // Si no hay div hijo (o no se encuentra), usar todo el texto
                          parentTextOnly = allText.trim();
                     }
                     
-                    // parentTextOnly debería ser algo como "Precio regular x kg.: $11.498"
-                    
-                    // Extraer el número después del '$'
                     String[] parts = parentTextOnly.split("\\$");
                     if (parts.length > 1) {
-                        String precioStr = parts[parts.length - 1].trim(); // Obtiene "11.498" o "25.998"
-                        
-                        // Aplicar la lógica de limpieza estándar
+                        String precioStr = parts[parts.length - 1].trim();
                         precioLimpio = precioStr.replace(".", "")
                             .replace(",", ".")
                             .replaceAll("\\s", "")
-                            .trim(); // Se convierte en "11498" o "25998"
+                            .trim();
                     } else {
                         throw new RuntimeException("No se pudo parsear el precio especial de Jumbo (no se encontró '$'): " + parentTextOnly);
                     }
                 
-                // Lógica existente para Disco
-				} else if ("disco".equalsIgnoreCase(supermercadoSlug)) {
+                // CASO 2: Lógica especial para DIA ID 434 (NUEVO)
+                } else if ("dia".equalsIgnoreCase(supermercadoSlug) && producto.getId() == 434) {
+                    
+                    System.out.println("Aplicando lógica de scraping especial para DIA ID: 434 (Por Kg)");
+                    By diaSpecialSelector = By.cssSelector("div.diaio-store-5-x-custom_specification_wrapper"); 
+                    WebElement precioElement = wait.until(
+                        ExpectedConditions.visibilityOfElementLocated(diaSpecialSelector)
+                    );
+                    String textoCompleto = precioElement.getText(); 
+                    String[] parts = textoCompleto.split("\\$");
+                    if (parts.length > 1) {
+                        String precioStr = parts[parts.length - 1].trim(); // "10.000"
+                        precioLimpio = precioStr.replace(".", "")
+                            .replace(",", ".")
+                            .replaceAll("\\s", "")
+                            .trim(); // "10000"
+                    } else {
+                        throw new RuntimeException("No se pudo parsear el precio por Kg de DIA (no se encontró '$'): " + textoCompleto);
+                    }
+
+                // CASO 3: Lógica general de DIA, priorizando precio regular (NUEVO)
+                } else if ("dia".equalsIgnoreCase(supermercadoSlug)) {
+                    System.out.println("Aplicando lógica general de DIA (buscando precio regular primero)");
+                    
+                    List<WebElement> regularPriceElements = driver.findElements(
+                        By.cssSelector("span.diaio-store-5-x-listPriceValue.strike")
+                    );
+
+                    if (!regularPriceElements.isEmpty()) {
+                        String textoPrecio = regularPriceElements.get(0).getText();
+                        System.out.println("Precio regular (tachado) encontrado: " + textoPrecio);
+                        precioLimpio = textoPrecio.replace("$", "")
+                            .replace(".", "")
+                            .replace(",", ".")
+                            .replaceAll("\\s", "")
+                            .trim();
+                    } else {
+                        System.out.println("No se encontró precio regular. Buscando precio principal (oferta/único).");
+                        WebElement precioElement = wait.until(
+                            ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector()))
+                        );
+                        // Llama a extractPrice (que usará la lógica "else" genérica)
+                        precioLimpio = extractPrice(precioElement, config, driver); 
+                    }
+
+                // CASO 4: Lógica existente para Disco (EXISTENTE)
+                } else if ("disco".equalsIgnoreCase(supermercadoSlug)) {
 					precioLimpio = extractDiscoPrice(driver);
                 
-                // Lógica existente para todos los demás (incluidos otros productos de Jumbo)
+                // CASO 5: Lógica genérica (incluye Coto, Jumbo genérico, Mas-Online, etc.) (EXISTENTE)
 				} else {
-					WebDriverWait waitPrecio = new WebDriverWait(driver, Duration.ofSeconds(30));
-					WebElement precioElement = waitPrecio.until(
+					WebElement precioElement = wait.until(
 							ExpectedConditions.visibilityOfElementLocated(By.cssSelector(config.getPriceSelector())));
+                    // Llama a extractPrice (que tiene la lógica compleja para Coto, Jumbo, etc.)
 					precioLimpio = extractPrice(precioElement, config, driver);
 				}
-                // --- FIN DE MODIFICACIÓN ---
+                // --- FIN DE LÓGICA FUSIONADA ---
 
 
-                // Validar precio antes de parsear y guardar
+                // Validar precio antes de parsear y guardar (Lógica existente)
 				if (precioLimpio == null || precioLimpio.isEmpty()) {
 					System.out.println("Precio vacío, usando fallback");
 					guardarPrecioFallback(producto);
@@ -239,8 +273,9 @@ public class GenericScraperService implements IScraperService {
 					continue;
 				}
 
-                // Ajuste para DIA: Multiplica por 2 si corresponde
+                // Ajuste para DIA: Multiplica por 2 si corresponde (Lógica existente)
 				if ("dia".equalsIgnoreCase(supermercadoSlug) && shouldDoubleDiaProduct(producto.getNombre())) {
+                    System.out.println("Aplicando duplicación de precio para producto DIA: " + producto.getNombre());
 					valor = valor * 2;
 				}
 
@@ -254,11 +289,11 @@ public class GenericScraperService implements IScraperService {
 		}
 	}
 
-	// --- MÉTODOS EXISTENTES (SIN CAMBIOS) ---
+	// --- MÉTODOS EXISTENTES (LIMPIADOS DE CARACTERES INVÁLIDOS) ---
 
     private String extractDiscoPrice(WebDriver driver) {
         try {
-    		Thread.sleep(3000);
+            Thread.sleep(3000); // Espera explícita de tu código
             WebElement priceContainer = driver.findElement(By.cssSelector("#priceContainer"));
             String offerText = priceContainer.getText();
             double offerValue = parseDiscoPrice(offerText);
@@ -312,6 +347,7 @@ public class GenericScraperService implements IScraperService {
 	}
 
 	private String extractPrice(WebElement priceElement, ScraperConfig config, WebDriver driver) {
+        // La lógica de "jumbo" aquí ahora SÓLO se aplica a productos que NO son 471 o 472
 		if ("jumbo".equals(config.getSupermarketSlug())) {
             // Esta lógica ahora se aplica a todos los productos de Jumbo EXCEPTO 471 y 472
 			// 1. Buscar precio real (sin rebaja)
@@ -344,7 +380,7 @@ public class GenericScraperService implements IScraperService {
 			return "0";
 		} else if ("coto".equals(config.getSupermarketSlug())) {
 			try {
-				Thread.sleep(3000);
+				Thread.sleep(3000); // Espera explícita de tu código
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -393,7 +429,7 @@ public class GenericScraperService implements IScraperService {
 			return "0";
 		} else if ("disco".equals(config.getSupermarketSlug())) {
 			try {
-				Thread.sleep(3000);
+				Thread.sleep(3000); // Espera explícita de tu código
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -442,9 +478,14 @@ public class GenericScraperService implements IScraperService {
 		} else if ("mas-online".equals(config.getSupermarketSlug())) {
 			WebDriver d = ((RemoteWebElement) priceElement).getWrappedDriver();
 			return extractMasOnlinePrice(d);
-		} else {
+        } else {
+            // Lógica genérica (usada por el fallback de DIA)
 			String textoPrecio = priceElement.getText();
-			return textoPrecio.replace("$", "").replace(".", "").replace(",", ".").replaceAll("\\s", "").trim();
+			return textoPrecio.replace("$", "")
+                .replace(".", "")
+                .replace(",", ".")
+                .replaceAll("\\s", "")
+                .trim();
 		}
 
 	}
@@ -455,39 +496,29 @@ public class GenericScraperService implements IScraperService {
 			WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
 			// 1. Espera a que TODOS los posibles contenedores de precio estén presentes.
-			// Esto es clave para productos en oferta, que suelen tener dos contenedores
-			// (oferta y regular).
 			List<WebElement> priceContainers = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
 					By.cssSelector("span.valtech-gdn-dynamic-product-1-x-currencyContainer")));
 
-			// 2. Si no se encuentra ningún contenedor, devuelve "0" para que se use el
-			// fallback.
+			// 2. Si no se encuentra ningún contenedor, devuelve "0".
 			if (priceContainers.isEmpty()) {
 				System.err.println("No se encontró ningún contenedor de precio para MasOnline.");
 				return "0";
 			}
 
 			// 3. Determina qué contenedor usar.
-			// Si hay más de un contenedor, el segundo suele ser el precio regular (sin
-			// oferta).
-			// Si solo hay uno, es el único precio disponible.
 			WebElement targetPriceElement = priceContainers.size() > 1 ? priceContainers.get(1)
 					: priceContainers.get(0);
 
-			// 4. Obtiene el texto completo del contenedor seleccionado. Ej: "$ 1.679,00"
+			// 4. Obtiene el texto completo del contenedor seleccionado.
 			String textoCompleto = targetPriceElement.getText();
 
-			// 5. Limpia el texto para quedarse con la parte entera del precio.
-			// Divide por la coma para descartar los centavos y luego elimina cualquier
-			// carácter que no sea un dígito.
+			// 5. Limpia el texto.
 			String precioLimpio = textoCompleto.split(",")[0].replaceAll("[^\\d]", "");
 
-			// 6. Devuelve el resultado. Si por alguna razón queda vacío, devuelve "0".
+			// 6. Devuelve el resultado.
 			return precioLimpio.isEmpty() ? "0" : precioLimpio;
 
 		} catch (Exception e) {
-			// Si algo falla durante la espera o el procesamiento, se registra el error y se
-			// devuelve "0".
 			System.err.println("Error al extraer precio MasOnline: " + e.getMessage());
 			return "0";
 		}

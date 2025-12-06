@@ -55,6 +55,16 @@ public class ScraperConfig {
                 ".modal-backdrop",
                 20
             );
+        case "carrefour":
+            return new ScraperConfig(
+                "carrefour",
+                // Este selector busca cualquier contenedor de moneda, sirve para esperar que cargue el precio
+                "span[class*='valtech-carrefourar-product-price-0-x-currencyContainer']", 
+                "div. valtech-carrefourar-modal-layout-0-x-closeButton", // Cierre de modal genérico (si hay)
+                "#onetrust-accept-btn-handler", // Cookies (si hay)
+                "div.vtex-modal-layout-0-x-backdrop", 
+                20
+            );
   
             case "disco":
                 return new ScraperConfig(

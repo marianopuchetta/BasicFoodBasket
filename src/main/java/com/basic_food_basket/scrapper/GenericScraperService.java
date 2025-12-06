@@ -515,7 +515,13 @@ public class GenericScraperService implements IScraperService {
 	    } else if ("mas-online".equals(config.getSupermarketSlug())) {
 	        WebDriver d = ((RemoteWebElement) priceElement).getWrappedDriver();
 	        return extractMasOnlinePrice(d);
-	    } else {
+	    } else if ("carrefour".equals(config.getSupermarketSlug())) {
+            // No usamos 'priceElement' directo porque necesitamos buscar en toda la página 
+            // para priorizar el precio tachado.
+            return extractCarrefourPrice(driver);
+        // --- FIN AGREGADO CARREFOUR ---
+       }
+	    else {
 	        String textoPrecio = priceElement.getText();
 	        return textoPrecio.replace("$", "")
 	            .replace(".", "")
@@ -524,6 +530,62 @@ public class GenericScraperService implements IScraperService {
 	            .trim();
 	    }
 	}
+	// --- NUEVO MÉTODO PARA CARREFOUR ---
+		private String extractCarrefourPrice(WebDriver driver) {
+			try {
+				WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+				WebElement priceContainer = null;
+
+				// 1. PRIORIDAD: Buscar PRECIO DE LISTA (Tachado/Regular)
+				// Usamos findElements para no lanzar excepción si no existe (caso producto sin oferta)
+				List<WebElement> listPriceElements = driver.findElements(
+					By.cssSelector("span[class*='valtech-carrefourar-product-price-0-x-listPriceValue']")
+				);
+
+				if (!listPriceElements.isEmpty()) {
+					// Si encontramos elementos tachados, tomamos el primero visible
+					for (WebElement element : listPriceElements) {
+						if (element.isDisplayed()) {
+							System.out.println("[DEBUG] Carrefour: Precio de lista (tachado) encontrado.");
+							priceContainer = element;
+							break;
+						}
+					}
+				}
+
+				// 2. FALLBACK: Si no hay precio tachado, buscar el PRECIO DE VENTA (Normal)
+				if (priceContainer == null) {
+					System.out.println("[DEBUG] Carrefour: No hay oferta. Buscando precio normal.");
+					// Buscamos el sellingPriceValue o el currencyContainer genérico que no sea hijo de un listPrice
+					// Esperamos explícitamente porque es el dato obligatorio
+					priceContainer = wait.until(ExpectedConditions.visibilityOfElementLocated(
+						By.cssSelector("span[class*='valtech-carrefourar-product-price-0-x-currencyContainer']")
+					));
+				}
+
+				// 3. Extracción y Limpieza del texto
+				// El formato de Carrefour es: $ 1.990,00
+				String texto = priceContainer.getText();
+				
+				// Limpieza estándar: quitar $, quitar puntos de miles, cambiar coma decimal por punto
+				String precioLimpio = texto.replace("$", "")
+										   .replace(".", "")
+										   .replace(",", ".")
+										   .replaceAll("\\s", "")
+										   .trim();
+
+				System.out.println("[DEBUG] Carrefour: Precio extraído final: " + precioLimpio);
+				
+				// Validación básica
+				if (precioLimpio.isEmpty()) return "0";
+				
+				return precioLimpio;
+
+			} catch (Exception e) {
+				System.err.println("Error al extraer precio Carrefour: " + e.getMessage());
+				return "0"; // Fallback para que el sistema intente usar el precio histórico
+			}
+		}
 	
 	private String extractMasOnlinePrice(WebDriver driver) {
 	    try {

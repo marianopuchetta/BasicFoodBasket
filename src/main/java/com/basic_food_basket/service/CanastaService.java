@@ -402,7 +402,19 @@ public class CanastaService implements ICanastaService {
     
     private Map<String, Object> obtenerResumenPorSupermercado() {
         Map<String, Object> respuesta = new LinkedHashMap<>();
-        LocalDate hoy = LocalDate.now();
+
+        // 1. Lógica para encontrar la última fecha con datos (Evita el error de "todo vacío" si hoy no es el día de carga)
+        List<LocalDate> fechasDisponibles = precioRepository.findDistinctFechas();
+        
+        if (fechasDisponibles.isEmpty()) {
+            respuesta.put("mensaje", "No hay datos cargados en el sistema");
+            return respuesta;
+        }
+
+        // Tomamos la fecha más reciente disponible
+        LocalDate hoy = fechasDisponibles.stream()
+                .max(LocalDate::compareTo)
+                .orElse(LocalDate.now());
 
         List<Precio> preciosDelDia = precioRepository.findByFechaWithRelations(hoy);
 
@@ -412,7 +424,7 @@ public class CanastaService implements ICanastaService {
                 Collectors.groupingBy(p -> p.getProducto().getTipoCanasta())
             ));
 
-        // Fechas históricas
+        // 2. Definición de fechas históricas relativas a la fecha encontrada
         LocalDate ayer = hoy.minus(1, ChronoUnit.DAYS);
         LocalDate semanaPasada = hoy.minus(7, ChronoUnit.DAYS);
         LocalDate mesPasado = hoy.minus(30, ChronoUnit.DAYS);
@@ -421,11 +433,11 @@ public class CanastaService implements ICanastaService {
         List<Map<String, Object>> supermercadosData = new ArrayList<>();
         int contadorSupermercados = 0;
 
-        // 1. Acumuladores Totales (Para calcular promedios de precio actuales - incluye Carrefour)
+        // 3. Inicialización de Acumuladores
+        // Suma total absoluta (para promedios de precios actuales)
         Map<TipoCanasta, Double> sumaTotalesHoy = new EnumMap<>(TipoCanasta.class);
 
-        // 2. Acumuladores para Variaciones (INTERSECCIÓN: Solo si existe en ambas fechas)
-        // "HoyParaAyer" significa: La suma de hoy, pero solo de los supers que existían ayer.
+        // Acumuladores "Espejo" para variaciones (Solo suman si el super existe en ambas fechas)
         Map<TipoCanasta, Double> sumHoyParaAyer = new EnumMap<>(TipoCanasta.class);
         Map<TipoCanasta, Double> sumAyer = new EnumMap<>(TipoCanasta.class);
 
@@ -438,7 +450,7 @@ public class CanastaService implements ICanastaService {
         Map<TipoCanasta, Double> sumHoyParaAnio = new EnumMap<>(TipoCanasta.class);
         Map<TipoCanasta, Double> sumAnio = new EnumMap<>(TipoCanasta.class);
 
-        // Inicializar mapas
+        // Poner todo en 0.0 para evitar NullPointer
         for (TipoCanasta tipo : TipoCanasta.values()) {
             sumaTotalesHoy.put(tipo, 0.0);
             
@@ -448,6 +460,7 @@ public class CanastaService implements ICanastaService {
             sumHoyParaAnio.put(tipo, 0.0); sumAnio.put(tipo, 0.0);
         }
 
+        // 4. Iteración de Supermercados
         for (Map.Entry<Supermercado, Map<TipoCanasta, List<Precio>>> entry : preciosAgrupados.entrySet()) {
             Supermercado supermercado = entry.getKey();
             Map<String, Object> supermercadoData = new LinkedHashMap<>();
@@ -465,40 +478,40 @@ public class CanastaService implements ICanastaService {
                 double totalCanastaHoy = calcularTotal(precios);
                 sumaTotalesCanastasSuper += totalCanastaHoy;
 
-                // Suma GLOBAL actual (Incluye Carrefour para mostrar el precio promedio real de hoy)
+                // A) Sumar al total general de HOY (Independientemente de si es nuevo o viejo)
                 sumaTotalesHoy.put(tipoCanasta, sumaTotalesHoy.get(tipoCanasta) + totalCanastaHoy);
 
-                // --- LÓGICA DE FILTRADO PARA VARIACIONES ---
+                // B) Lógica de Filtrado para Variaciones (Intersección de fechas)
                 
-                // 1. DIARIA
+                // --- Variación Diaria ---
                 double totalAyer = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(ayer, supermercado.getId(), tipoCanasta));
-                if (totalAyer > 0) { // Solo si existía ayer, sumamos ambos lados
+                if (totalAyer > 0) { // Solo si existía ayer
                     sumHoyParaAyer.put(tipoCanasta, sumHoyParaAyer.get(tipoCanasta) + totalCanastaHoy);
                     sumAyer.put(tipoCanasta, sumAyer.get(tipoCanasta) + totalAyer);
                 }
 
-                // 2. SEMANAL
+                // --- Variación Semanal ---
                 double totalSem = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(semanaPasada, supermercado.getId(), tipoCanasta));
-                if (totalSem > 0) { // Solo si existía la semana pasada
+                if (totalSem > 0) { // Solo si existía la semana pasada (Carrefour no entrará aquí)
                     sumHoyParaSemana.put(tipoCanasta, sumHoyParaSemana.get(tipoCanasta) + totalCanastaHoy);
                     sumSemana.put(tipoCanasta, sumSemana.get(tipoCanasta) + totalSem);
                 }
 
-                // 3. MENSUAL
+                // --- Variación Mensual ---
                 double totalMes = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(mesPasado, supermercado.getId(), tipoCanasta));
                 if (totalMes > 0) { 
                     sumHoyParaMes.put(tipoCanasta, sumHoyParaMes.get(tipoCanasta) + totalCanastaHoy);
                     sumMes.put(tipoCanasta, sumMes.get(tipoCanasta) + totalMes);
                 }
 
-                // 4. ANUAL
+                // --- Variación Anual ---
                 double totalAnio = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(añoPasado, supermercado.getId(), tipoCanasta));
                 if (totalAnio > 0) {
                     sumHoyParaAnio.put(tipoCanasta, sumHoyParaAnio.get(tipoCanasta) + totalCanastaHoy);
                     sumAnio.put(tipoCanasta, sumAnio.get(tipoCanasta) + totalAnio);
                 }
 
-                // Datos individuales del supermercado (esto no cambia)
+                // C) Datos individuales del supermercado (Aquí sí mostramos sus variaciones propias o null)
                 Map<String, Object> canastaData = new LinkedHashMap<>();
                 canastaData.put("tipo", tipoCanasta.name());
                 canastaData.put("total", redondear2Decimales(totalCanastaHoy));
@@ -526,25 +539,27 @@ public class CanastaService implements ICanastaService {
         respuesta.put("supermercados", supermercadosData);
         respuesta.put("cantidadSupermercados", contadorSupermercados);
 
-        // Cálculos Generales Finales
+        // 5. Cálculos Generales Finales
         for (TipoCanasta tipo : TipoCanasta.values()) {
-            // Promedio general de HOY (Usa el total que incluye Carrefour, dividido por TOTAL de supers)
+            String nombre = tipo.name();
+
+            // Promedio General de Precios (Usa todos los supers disponibles hoy)
             Double promedioGeneral = contadorSupermercados == 0 ? 0 : 
                                      redondear2Decimales(sumaTotalesHoy.get(tipo) / contadorSupermercados);
             
-            respuesta.put("promedioGeneral" + tipo.name(), promedioGeneral);
+            respuesta.put("promedioGeneral" + nombre, promedioGeneral);
 
             // Variaciones Generales (Usan los acumuladores filtrados)
-            respuesta.put("variacionDiariaGeneral" + tipo.name(), 
+            respuesta.put("variacionDiariaGeneral" + nombre, 
                 calcularVariacion(sumHoyParaAyer.get(tipo), sumAyer.get(tipo)));
                 
-            respuesta.put("variacionSemanalGeneral" + tipo.name(), 
+            respuesta.put("variacionSemanalGeneral" + nombre, 
                 calcularVariacion(sumHoyParaSemana.get(tipo), sumSemana.get(tipo)));
                 
-            respuesta.put("variacionMensualGeneral" + tipo.name(), 
+            respuesta.put("variacionMensualGeneral" + nombre, 
                 calcularVariacion(sumHoyParaMes.get(tipo), sumMes.get(tipo)));
                 
-            respuesta.put("variacionAnualGeneral" + tipo.name(), 
+            respuesta.put("variacionAnualGeneral" + nombre, 
                 calcularVariacion(sumHoyParaAnio.get(tipo), sumAnio.get(tipo)));
         }
 

@@ -35,7 +35,7 @@ public class GenericScraperService implements IScraperService {
 	private volatile boolean scrapingEnabled = true;
 	private WebDriver currentDriver;
 
-	private static final Set<String> DIA_DUPLICATE_PRICE_PRODUCTS = Set.of("Café Clásico La Morenita", "Té en saquitos Crysf");
+	private static final Set<String> DIA_DUPLICATE_PRICE_PRODUCTS = Set.of("Café Clásico La Morenita", "Té Común La Virginia");
 
 	@PreDestroy
 	public void cleanUp() {

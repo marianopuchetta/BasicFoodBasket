@@ -16,6 +16,18 @@ public class Producto {
 	private String nombre;
 
 	private String url;
+	
+	// Nombre para el usuario: "Agua Mineralizada 1.5L/2L"
+    private String nombreGenerico;
+
+    // Clasificación: "Bebidas no alcohólicas", "Carnes", etc.
+    private String categoria;
+
+    // Clasificación extra: "Proteína animal", "Carbohidratos"
+    private String grupoNutricional;
+
+    // Para que la Sal (10) aparezca antes que el Azúcar (11)
+    private Integer ordenListado;
 
 	@ManyToOne
 	@JoinColumn(name = "supermercado_id")
@@ -90,4 +102,18 @@ public class Producto {
 	public void setTipoCanasta(TipoCanasta tipoCanasta) {
 		this.tipoCanasta = tipoCanasta;
 	}
+	
+	// --- NUEVOS GETTERS Y SETTERS ---
+
+    public String getNombreGenerico() { return nombreGenerico; }
+    public void setNombreGenerico(String nombreGenerico) { this.nombreGenerico = nombreGenerico; }
+
+    public String getCategoria() { return categoria; }
+    public void setCategoria(String categoria) { this.categoria = categoria; }
+
+    public String getGrupoNutricional() { return grupoNutricional; }
+    public void setGrupoNutricional(String grupoNutricional) { this.grupoNutricional = grupoNutricional; }
+
+    public Integer getOrdenVisual() { return ordenListado; }
+    public void setOrdenVisual(Integer ordenVisual) { this.ordenListado = ordenVisual; }
 }

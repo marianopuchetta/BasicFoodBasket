@@ -194,9 +194,10 @@ public class GenericScraperService implements IScraperService {
                         throw new RuntimeException("No se pudo parsear el precio especial de Jumbo (no se encontró '$'): " + parentTextOnly);
 					}
                 
-                } else if ("dia".equalsIgnoreCase(supermercadoSlug) && producto.getId() == 434) {
+              //  } else if ("dia".equalsIgnoreCase(supermercadoSlug) && producto.getId() == 434) {
+		           } else if ("dia".equalsIgnoreCase(supermercadoSlug) && (producto.getId() == 434 || producto.getId() == 438)) {
                     
-					 System.out.println("Aplicando lógica de scraping especial para DIA ID: 434 (Por Kg)");
+					 System.out.println("Aplicando lógica de scraping especial para DIA Id=" + producto.getId() + " (Por Kg)");
                     By diaSpecialSelector = By.cssSelector("div.diaio-store-5-x-custom_specification_wrapper");
 					 WebElement precioElement = wait.until(
                         ExpectedConditions.visibilityOfElementLocated(diaSpecialSelector)

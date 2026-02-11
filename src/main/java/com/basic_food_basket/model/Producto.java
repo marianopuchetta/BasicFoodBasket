@@ -24,7 +24,7 @@ public class Producto {
     private String categoria;
 
     // Clasificación extra: "Proteína animal", "Carbohidratos"
-    private String grupoNutricional;
+    private String subCategoria;
 
     // Para que la Sal (10) aparezca antes que el Azúcar (11)
     private Integer ordenListado;
@@ -111,8 +111,8 @@ public class Producto {
     public String getCategoria() { return categoria; }
     public void setCategoria(String categoria) { this.categoria = categoria; }
 
-    public String getGrupoNutricional() { return grupoNutricional; }
-    public void setGrupoNutricional(String grupoNutricional) { this.grupoNutricional = grupoNutricional; }
+    public String getSubCategoria() { return subCategoria; }
+    public void setSubCategoria(String subCategoria) { this.subCategoria = subCategoria; }
 
     public Integer getOrdenVisual() { return ordenListado; }
     public void setOrdenVisual(Integer ordenVisual) { this.ordenListado = ordenVisual; }

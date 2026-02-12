@@ -598,7 +598,8 @@ public class CanastaService implements ICanastaService {
         }
 
         // 3. Respuesta final
-        respuesta.put("fecha", hoy.toString());
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        respuesta.put("fecha", hoy.format(formatter));
         respuesta.put("supermercados", supermercadosData);
         respuesta.put("cantidadSupermercados", contadorSupermercados);
 

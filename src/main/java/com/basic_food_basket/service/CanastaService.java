@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -22,7 +23,7 @@ public class CanastaService implements ICanastaService {
     private ProductoRepository productoRepository;
         
     
-    
+    /*
     @Override
     public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
         Map<String, Object> respuesta = new LinkedHashMap<>();
@@ -69,8 +70,65 @@ public class CanastaService implements ICanastaService {
         return respuesta;
     }
 
+	*/
+    @Override
+    public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
 
+        Map<String, Object> respuesta = new LinkedHashMap<>();
 
+        Optional<Precio> precioMasRecienteOpt = precioRepository.findTopByOrderByFechaDesc();
+
+        if (precioMasRecienteOpt.isEmpty()) {
+            respuesta.put("mensaje", "No hay datos cargados");
+            return respuesta;
+        }
+
+        LocalDate ultimaFecha = precioMasRecienteOpt.get().getFecha();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        respuesta.put("fecha", ultimaFecha.format(formatter));
+
+        // 🔥 UNA sola query grande optimizada
+        List<Precio> preciosDelDia =
+                precioRepository.findByFechaWithProductoAndSupermercado(ultimaFecha);
+
+        // Agrupar en memoria (muy barato)
+        Map<Supermercado, List<Precio>> agrupado = preciosDelDia.stream()
+                .collect(Collectors.groupingBy(p -> p.getProducto().getSupermercado()));
+
+        List<Map<String, Object>> supermercadosData = new ArrayList<>();
+
+        for (Map.Entry<Supermercado, List<Precio>> entry : agrupado.entrySet()) {
+
+            Supermercado supermercado = entry.getKey();
+            List<Precio> precios = entry.getValue();
+
+            Map<String, Object> supermercadoData = new LinkedHashMap<>();
+            supermercadoData.put("nombre", supermercado.getNombre());
+
+            List<Map<String, Object>> productosData = new ArrayList<>();
+            double totalSupermercado = 0.0;
+
+            for (Precio precio : precios) {
+
+                Map<String, Object> productoData = new LinkedHashMap<>();
+                productoData.put("nombre", precio.getProducto().getNombre());
+                productoData.put("precio", precio.getValor());
+
+                productosData.add(productoData);
+                totalSupermercado += precio.getValor();
+            }
+
+            supermercadoData.put("productos", productosData);
+            supermercadoData.put("total", redondear2Decimales(totalSupermercado));
+
+            supermercadosData.add(supermercadoData);
+        }
+
+        respuesta.put("supermercados", supermercadosData);
+
+        return respuesta;
+    }
 
 
     

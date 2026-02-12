@@ -27,6 +27,7 @@ public class Producto {
     private String subCategoria;
 
     // Para que la Sal (10) aparezca antes que el Azúcar (11)
+    @Column(name = "orden_listado")
     private Integer ordenListado;
 
 	@ManyToOne
@@ -40,6 +41,8 @@ public class Producto {
 	@OneToMany(mappedBy = "producto", cascade = CascadeType.ALL)
 	@JsonIgnore
 	private List<Precio> precios;
+	
+	
 
 	/*
 	 * @Column(name = "tipo_canasta") private String tipoCanasta; // "CBA", "CPA",
@@ -114,6 +117,7 @@ public class Producto {
     public String getSubCategoria() { return subCategoria; }
     public void setSubCategoria(String subCategoria) { this.subCategoria = subCategoria; }
 
-    public Integer getOrdenVisual() { return ordenListado; }
-    public void setOrdenVisual(Integer ordenVisual) { this.ordenListado = ordenVisual; }
+    public Integer getOrdenListado() { return ordenListado; }
+
+    public void setOrdenListado(Integer ordenListado) { this.ordenListado = ordenListado; }
 }

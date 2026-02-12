@@ -65,6 +65,15 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
     
     @Query("SELECT p FROM Precio p WHERE p.producto = :producto AND p.scrapeado = true ORDER BY p.fecha DESC")
     List<Precio> findScrapeadosByProductoOrderByFechaDesc(@Param("producto") Producto producto);
+    @Query(
+    	    "SELECT p FROM Precio p" +
+    	    "JOIN FETCH p.producto prod" +
+    	    "JOIN FETCH prod.supermercado s" +
+    	    "WHERE p.fecha = :fecha" +
+    	    "ORDER BY s.id, prod.ordenListado" 
+    	)
+    	List<Precio> findByFechaWithProductoAndSupermercado(@Param("fecha") LocalDate fecha);
+
     
     Optional<Precio> findTopByOrderByFechaDesc();
     

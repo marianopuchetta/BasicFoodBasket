@@ -252,154 +252,8 @@ public class CanastaService implements ICanastaService {
         return respuesta;
     }
 
+
     /*
-    private Map<String, Object> obtenerResumenPorSupermercado() {
-        Map<String, Object> respuesta = new LinkedHashMap<>();
-        LocalDate fecha = obtenerUltimaFechaConPrecios();
-        if (fecha == null) {
-            respuesta.put("fecha", LocalDate.now().toString());
-            respuesta.put("supermercados", new ArrayList<>());
-            respuesta.put("cantidadSupermercados", 0);
-            return respuesta;
-        }
-
-        List<Precio> preciosDelDia = precioRepository.findByFechaWithRelations(fecha);
-
-        List<Supermercado> supermercadosOrdenados = precioRepository.findDistinctSupermercados().stream()
-                                                    .sorted(Comparator.comparing(Supermercado::getId))
-                                                    .collect(Collectors.toList());
-
-        Map<Supermercado, Map<TipoCanasta, List<Precio>>> preciosAgrupados = preciosDelDia.stream()
-            .collect(Collectors.groupingBy(
-                p -> p.getProducto().getSupermercado(),
-                Collectors.groupingBy(p -> p.getProducto().getTipoCanasta())
-            ));
-
-        LocalDate ayer = fecha.minus(1, ChronoUnit.DAYS);
-        LocalDate semanaPasada = fecha.minus(7, ChronoUnit.DAYS);
-        LocalDate mesPasado = fecha.minus(30, ChronoUnit.DAYS);
-        LocalDate añoPasado = fecha.minus(365, ChronoUnit.DAYS);
-
-        List<Map<String, Object>> supermercadosData = new ArrayList<>();
-        int contadorSupermercados = 0;
-
-        Map<TipoCanasta, Double> sumaTotalesPorCanasta = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumaTotalesPorCanastaAyer = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumaTotalesPorCanastaSem = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumaTotalesPorCanastaMes = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumaTotalesPorCanastaAnio = new EnumMap<>(TipoCanasta.class);
-
-        // SOLO CBA
-        for (TipoCanasta tipo : Collections.singletonList(TipoCanasta.CBA)) {
-            sumaTotalesPorCanasta.put(tipo, 0.0);
-            sumaTotalesPorCanastaAyer.put(tipo, 0.0);
-            sumaTotalesPorCanastaSem.put(tipo, 0.0);
-            sumaTotalesPorCanastaMes.put(tipo, 0.0);
-            sumaTotalesPorCanastaAnio.put(tipo, 0.0);
-        }
-
-        for (Supermercado supermercado : supermercadosOrdenados) {
-            Map<String, Object> supermercadoData = new LinkedHashMap<>();
-            supermercadoData.put("id", supermercado.getId());
-            supermercadoData.put("nombre", supermercado.getNombre());
-            supermercadoData.put("slug", supermercado.getSlug());
-
-            List<Map<String, Object>> canastasData = new ArrayList<>();
-            double sumaTotalesCanastasSuper = 0;
-
-            Map<TipoCanasta, List<Precio>> canastasDelSupermercado = preciosAgrupados.getOrDefault(supermercado, Collections.emptyMap());
-
-            // SOLO CBA
-            for (TipoCanasta tipoCanasta : Collections.singletonList(TipoCanasta.CBA)) {
-                List<Precio> precios = canastasDelSupermercado.getOrDefault(tipoCanasta, Collections.emptyList());
-
-                double totalCanasta = calcularTotal(precios);
-                sumaTotalesCanastasSuper += totalCanasta;
-
-                sumaTotalesPorCanasta.put(tipoCanasta,
-                    sumaTotalesPorCanasta.getOrDefault(tipoCanasta, 0.0) + totalCanasta);
-
-                double totalAyer = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(ayer, supermercado.getId(), tipoCanasta));
-                sumaTotalesPorCanastaAyer.put(tipoCanasta,
-                    sumaTotalesPorCanastaAyer.getOrDefault(tipoCanasta, 0.0) + totalAyer);
-
-                double totalSem = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(semanaPasada, supermercado.getId(), tipoCanasta));
-                sumaTotalesPorCanastaSem.put(tipoCanasta,
-                    sumaTotalesPorCanastaSem.getOrDefault(tipoCanasta, 0.0) + totalSem);
-
-                double totalMes = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(mesPasado, supermercado.getId(), tipoCanasta));
-                sumaTotalesPorCanastaMes.put(tipoCanasta,
-                    sumaTotalesPorCanastaMes.getOrDefault(tipoCanasta, 0.0) + totalMes);
-
-                double totalAnio = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(añoPasado, supermercado.getId(), tipoCanasta));
-                sumaTotalesPorCanastaAnio.put(tipoCanasta,
-                    sumaTotalesPorCanastaAnio.getOrDefault(tipoCanasta, 0.0) + totalAnio);
-
-                Map<String, Object> canastaData = new LinkedHashMap<>();
-                canastaData.put("tipo", tipoCanasta.name());
-                canastaData.put("total", redondear2Decimales(totalCanasta));
-                canastaData.put("productos", precios.size());
-                canastaData.put("promedioProducto", precios.isEmpty() ? 0 : redondear2Decimales(totalCanasta / precios.size()));
-
-                canastaData.put("variacionDiaria", calcularVariacion(
-                    totalCanasta,
-                    calcularTotalCanasta(supermercado.getId(), tipoCanasta, ayer)
-                ));
-
-                canastaData.put("variacionSemanal", calcularVariacion(
-                    totalCanasta,
-                    calcularTotalCanasta(supermercado.getId(), tipoCanasta, semanaPasada)
-                ));
-
-                canastaData.put("variacionMensual", calcularVariacion(
-                    totalCanasta,
-                    calcularTotalCanasta(supermercado.getId(), tipoCanasta, mesPasado)
-                ));
-
-                canastaData.put("variacionAnual", calcularVariacion(
-                    totalCanasta,
-                    calcularTotalCanasta(supermercado.getId(), tipoCanasta, añoPasado)
-                ));
-
-                canastasData.add(canastaData);
-            }
-
-            supermercadoData.put("canastas", canastasData);
-            supermercadoData.put("promedioSupermercado",
-                canastasData.isEmpty() ? 0 :
-                    redondear2Decimales(sumaTotalesCanastasSuper / canastasData.size()));
-
-            supermercadosData.add(supermercadoData);
-            contadorSupermercados++;
-        }
-
-        respuesta.put("fecha", fecha.toString());
-        respuesta.put("supermercados", supermercadosData);
-        respuesta.put("cantidadSupermercados", contadorSupermercados);
-
-        // Promedios generales por canasta: suma de totales de canasta / cantidad de supermercados
-        for (TipoCanasta tipoCanasta : Collections.singletonList(TipoCanasta.CBA)) {
-            int cuenta = contadorSupermercados;
-            respuesta.put("promedioGeneral" + tipoCanasta.name(),
-                cuenta == 0 ? null : redondear2Decimales(sumaTotalesPorCanasta.get(tipoCanasta) / cuenta));
-        }
-
-        // Variaciones generales por canasta (SOLO CBA)
-        respuesta.put("variacionDiariaGeneralCBA",
-            calcularVariacion(sumaTotalesPorCanasta.getOrDefault(TipoCanasta.CBA, 0.0), sumaTotalesPorCanastaAyer.getOrDefault(TipoCanasta.CBA, 0.0)));
-        respuesta.put("variacionSemanalGeneralCBA",
-            calcularVariacion(sumaTotalesPorCanasta.getOrDefault(TipoCanasta.CBA, 0.0), sumaTotalesPorCanastaSem.getOrDefault(TipoCanasta.CBA, 0.0)));
-        respuesta.put("variacionMensualGeneralCBA",
-            calcularVariacion(sumaTotalesPorCanasta.getOrDefault(TipoCanasta.CBA, 0.0), sumaTotalesPorCanastaMes.getOrDefault(TipoCanasta.CBA, 0.0)));
-        respuesta.put("variacionAnualGeneralCBA",
-            calcularVariacion(sumaTotalesPorCanasta.getOrDefault(TipoCanasta.CBA, 0.0), sumaTotalesPorCanastaAnio.getOrDefault(TipoCanasta.CBA, 0.0)));
-
-        // Eliminar los campos CPA
-
-        return respuesta;
-    }
-    */
-    
     private Map<String, Object> obtenerResumenPorSupermercado() {
         Map<String, Object> respuesta = new LinkedHashMap<>();
 
@@ -513,10 +367,10 @@ public class CanastaService implements ICanastaService {
 
                 // C) Datos individuales del supermercado (Aquí sí mostramos sus variaciones propias o null)
                 Map<String, Object> canastaData = new LinkedHashMap<>();
-                canastaData.put("tipo", tipoCanasta.name());
+               // canastaData.put("tipo", tipoCanasta.name());
                 canastaData.put("total", redondear2Decimales(totalCanastaHoy));
                 canastaData.put("productos", precios.size());
-                canastaData.put("promedioProducto", precios.isEmpty() ? 0 : redondear2Decimales(totalCanastaHoy / precios.size()));
+               // canastaData.put("promedioProducto", precios.isEmpty() ? 0 : redondear2Decimales(totalCanastaHoy / precios.size()));
 
                 canastaData.put("variacionDiaria", calcularVariacion(totalCanastaHoy, totalAyer));
                 canastaData.put("variacionSemanal", calcularVariacion(totalCanastaHoy, totalSem));
@@ -527,10 +381,11 @@ public class CanastaService implements ICanastaService {
             }
 
             supermercadoData.put("canastas", canastasData);
+            
             supermercadoData.put("promedioSupermercado",
                 canastasData.isEmpty() ? 0 :
                     redondear2Decimales(sumaTotalesCanastasSuper / canastasData.size()));
-
+            
             supermercadosData.add(supermercadoData);
             contadorSupermercados++;
         }
@@ -565,7 +420,153 @@ public class CanastaService implements ICanastaService {
 
         return respuesta;
     }
+    */
+    private Map<String, Object> obtenerResumenPorSupermercado() {
 
+        Map<String, Object> respuesta = new LinkedHashMap<>();
+
+        // 1. Buscar última fecha con datos
+        List<LocalDate> fechasDisponibles = precioRepository.findDistinctFechas();
+
+        if (fechasDisponibles.isEmpty()) {
+            respuesta.put("mensaje", "No hay datos cargados en el sistema");
+            return respuesta;
+        }
+
+        LocalDate hoy = fechasDisponibles.stream()
+                .max(LocalDate::compareTo)
+                .orElse(LocalDate.now());
+
+        List<Precio> preciosDelDia = precioRepository.findByFechaWithRelations(hoy);
+
+        // Agrupar SOLO por supermercado (ya no por tipo)
+        Map<Supermercado, List<Precio>> preciosAgrupados = preciosDelDia.stream()
+                .filter(p -> p.getProducto().getTipoCanasta() == TipoCanasta.CBA)
+                .collect(Collectors.groupingBy(
+                        p -> p.getProducto().getSupermercado()
+                ));
+
+        // Fechas históricas
+        LocalDate ayer = hoy.minusDays(1);
+        LocalDate semanaPasada = hoy.minusDays(7);
+        LocalDate mesPasado = hoy.minusDays(30);
+        LocalDate añoPasado = hoy.minusDays(365);
+
+        List<Map<String, Object>> supermercadosData = new ArrayList<>();
+        int contadorSupermercados = 0;
+
+        double sumaTotalesHoy = 0.0;
+
+        double sumHoyParaAyer = 0.0;
+        double sumAyer = 0.0;
+
+        double sumHoyParaSemana = 0.0;
+        double sumSemana = 0.0;
+
+        double sumHoyParaMes = 0.0;
+        double sumMes = 0.0;
+
+        double sumHoyParaAnio = 0.0;
+        double sumAnio = 0.0;
+
+        // 2. Iterar supermercados
+        for (Map.Entry<Supermercado, List<Precio>> entry : preciosAgrupados.entrySet()) {
+
+            Supermercado supermercado = entry.getKey();
+            List<Precio> precios = entry.getValue();
+
+            double totalHoy = calcularTotal(precios);
+            sumaTotalesHoy += totalHoy;
+
+            Map<String, Object> supermercadoData = new LinkedHashMap<>();
+            supermercadoData.put("id", supermercado.getId());
+            supermercadoData.put("nombre", supermercado.getNombre());
+            supermercadoData.put("slug", supermercado.getSlug());
+
+            supermercadoData.put("total", redondear2Decimales(totalHoy));
+            supermercadoData.put("productos", precios.size());
+
+            // --- Variación diaria ---
+            double totalAyer = calcularTotal(
+                    precioRepository.findByFechaAndSupermercadoAndTipoCanasta(
+                            ayer, supermercado.getId(), TipoCanasta.CBA
+                    )
+            );
+            if (totalAyer > 0) {
+                sumHoyParaAyer += totalHoy;
+                sumAyer += totalAyer;
+            }
+
+            // --- Variación semanal ---
+            double totalSemana = calcularTotal(
+                    precioRepository.findByFechaAndSupermercadoAndTipoCanasta(
+                            semanaPasada, supermercado.getId(), TipoCanasta.CBA
+                    )
+            );
+            if (totalSemana > 0) {
+                sumHoyParaSemana += totalHoy;
+                sumSemana += totalSemana;
+            }
+
+            // --- Variación mensual ---
+            double totalMes = calcularTotal(
+                    precioRepository.findByFechaAndSupermercadoAndTipoCanasta(
+                            mesPasado, supermercado.getId(), TipoCanasta.CBA
+                    )
+            );
+            if (totalMes > 0) {
+                sumHoyParaMes += totalHoy;
+                sumMes += totalMes;
+            }
+
+            // --- Variación anual ---
+            double totalAnio = calcularTotal(
+                    precioRepository.findByFechaAndSupermercadoAndTipoCanasta(
+                            añoPasado, supermercado.getId(), TipoCanasta.CBA
+                    )
+            );
+            if (totalAnio > 0) {
+                sumHoyParaAnio += totalHoy;
+                sumAnio += totalAnio;
+            }
+
+            supermercadoData.put("variacionDiaria", calcularVariacion(totalHoy, totalAyer));
+            supermercadoData.put("variacionSemanal", calcularVariacion(totalHoy, totalSemana));
+            supermercadoData.put("variacionMensual", calcularVariacion(totalHoy, totalMes));
+            supermercadoData.put("variacionAnual", calcularVariacion(totalHoy, totalAnio));
+
+            supermercadosData.add(supermercadoData);
+            contadorSupermercados++;
+        }
+
+        // 3. Respuesta final
+        respuesta.put("fecha", hoy.toString());
+        respuesta.put("supermercados", supermercadosData);
+        respuesta.put("cantidadSupermercados", contadorSupermercados);
+
+        // Promedio general CBA
+        double promedioGeneral = contadorSupermercados == 0
+                ? 0
+                : redondear2Decimales(sumaTotalesHoy / contadorSupermercados);
+
+        respuesta.put("promedioGeneralCBA", promedioGeneral);
+
+        respuesta.put("variacionDiariaGeneralCBA",
+                calcularVariacion(sumHoyParaAyer, sumAyer));
+
+        respuesta.put("variacionSemanalGeneralCBA",
+                calcularVariacion(sumHoyParaSemana, sumSemana));
+
+        respuesta.put("variacionMensualGeneralCBA",
+                calcularVariacion(sumHoyParaMes, sumMes));
+
+        respuesta.put("variacionAnualGeneralCBA",
+                calcularVariacion(sumHoyParaAnio, sumAnio));
+
+        return respuesta;
+    }
+
+    
     private double calcularTotalCanasta(Long supermercadoId, TipoCanasta tipoCanasta, LocalDate fecha) {
         List<Precio> precios = precioRepository.findByFechaAndSupermercadoAndTipoCanasta(
             fecha, supermercadoId, tipoCanasta);

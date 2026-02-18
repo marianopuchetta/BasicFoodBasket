@@ -12,6 +12,7 @@ import com.basic_food_basket.model.TipoCanasta;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -77,5 +78,19 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
 
     
     Optional<Precio> findTopByOrderByFechaDesc();
-    
+    @Query(
+    	    "SELECT new map(" +
+    	    "   p.fecha as fecha, " +
+    	    "   SUM(p.valor) as total" +
+    	    ") " +
+    	    "FROM Precio p " +
+    	    "WHERE p.fecha BETWEEN :desde AND :hasta " +
+    	    "GROUP BY p.fecha " +
+    	    "ORDER BY p.fecha"
+    	)
+    	List<Map<String, Object>> obtenerHistorialTotales(
+    	    @Param("desde") LocalDate desde,
+    	    @Param("hasta") LocalDate hasta
+    	);
+
 }

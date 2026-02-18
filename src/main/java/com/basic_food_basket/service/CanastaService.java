@@ -518,4 +518,29 @@ public class CanastaService implements ICanastaService {
     private double redondear2Decimales(double valor) {
         return Math.round(valor * 100.0) / 100.0;
     }
+    private LocalDate obtenerUltimaFecha() {
+    List<LocalDate> fechas = precioRepository.findDistinctFechas();
+
+    if (fechas.isEmpty()) {
+        return null;
+    }
+
+    return fechas.stream()
+            .max(LocalDate::compareTo)
+            .orElse(null);
+}
+public List<Map<String, Object>> obtenerHistorialUltimos30Dias() {
+
+    LocalDate ultimaFecha = obtenerUltimaFecha();
+
+    if (ultimaFecha == null) {
+        return Collections.emptyList();
+    }
+
+    LocalDate desde = ultimaFecha.minusDays(30);
+
+    return precioRepository.obtenerHistorialTotales(desde, ultimaFecha);
+}
+
+
 }

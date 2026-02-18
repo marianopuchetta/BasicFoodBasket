@@ -62,4 +62,9 @@ public class CanastaController {
     public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
         return canastaService.obtenerUltimosPreciosPorSupermercado();
     }
+    @GetMapping("/canasta/historial/ultimos-30")
+public ResponseEntity<?> historialUltimos30Dias() {
+    return ResponseEntity.ok(canastaService.obtenerHistorialUltimos30Dias());
+}
+
 }

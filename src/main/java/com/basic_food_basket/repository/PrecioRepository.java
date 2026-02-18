@@ -78,13 +78,15 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
 
     
     Optional<Precio> findTopByOrderByFechaDesc();
+
     @Query(
     	    "SELECT new map(" +
     	    "   p.fecha as fecha, " +
-    	    "   SUM(p.valor) as total" +
+    	    "   SUM(p.valor) as total " +
     	    ") " +
     	    "FROM Precio p " +
     	    "WHERE p.fecha BETWEEN :desde AND :hasta " +
+    	    "AND p.scrapeado = true " +
     	    "GROUP BY p.fecha " +
     	    "ORDER BY p.fecha"
     	)
@@ -92,5 +94,6 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
     	    @Param("desde") LocalDate desde,
     	    @Param("hasta") LocalDate hasta
     	);
+
 
 }

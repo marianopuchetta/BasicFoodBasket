@@ -3,7 +3,9 @@ package com.basic_food_basket.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 
 import com.basic_food_basket.service.ICanastaService;
 
@@ -62,7 +64,7 @@ public class CanastaController {
     public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
         return canastaService.obtenerUltimosPreciosPorSupermercado();
     }
-    @GetMapping("/canasta/historial/ultimos-30")
+    @GetMapping("/historial/ultimos-30")
 public ResponseEntity<?> historialUltimos30Dias() {
     return ResponseEntity.ok(canastaService.obtenerHistorialUltimos30Dias());
 }

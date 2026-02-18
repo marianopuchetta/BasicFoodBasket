@@ -529,18 +529,26 @@ public class CanastaService implements ICanastaService {
             .max(LocalDate::compareTo)
             .orElse(null);
 }
-public List<Map<String, Object>> obtenerHistorialUltimos30Dias() {
+    @Override
+    public Map<String, Object> obtenerHistorialUltimos30Dias() {
 
-    LocalDate ultimaFecha = obtenerUltimaFecha();
+        LocalDate ultimaFecha = obtenerUltimaFecha();
 
-    if (ultimaFecha == null) {
-        return Collections.emptyList();
+        if (ultimaFecha == null) {
+            return Collections.emptyMap();
+        }
+
+        LocalDate desde = ultimaFecha.minusDays(30);
+
+        List<Map<String, Object>> historial =
+                precioRepository.obtenerHistorialTotales(desde, ultimaFecha);
+
+        Map<String, Object> respuesta = new LinkedHashMap<>();
+        respuesta.put("historial", historial);
+
+        return respuesta;
     }
 
-    LocalDate desde = ultimaFecha.minusDays(30);
-
-    return precioRepository.obtenerHistorialTotales(desde, ultimaFecha);
-}
 
 
 }

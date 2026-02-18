@@ -30,4 +30,7 @@ public interface ICanastaService {
     Map<String, Object> obtenerHistorialGeneral(LocalDate desde, LocalDate hasta);
     
     Map<String, Object> obtenerUltimosPreciosPorSupermercado();
+    
+    Map<String, Object> obtenerHistorialUltimos30Dias();
+
 }

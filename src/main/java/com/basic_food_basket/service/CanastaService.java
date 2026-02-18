@@ -533,19 +533,16 @@ public class CanastaService implements ICanastaService {
     public Map<String, Object> obtenerHistorialUltimos30Dias() {
 
         LocalDate ultimaFecha = obtenerUltimaFecha();
-        System.out.println("Iniciando búsqueda de historial...");
+
         if (ultimaFecha == null) {
-            return Collections.emptyMap();
+            return Collections.singletonMap("historialSupermercados", new ArrayList<>());
         }
 
         LocalDate desde = ultimaFecha.minusDays(30);
-        List<Map<String, Object>> historial =
-                precioRepository.obtenerHistorialTotales(desde, ultimaFecha);
-        Map<String, Object> respuesta = new LinkedHashMap<>();
-        respuesta.put("historial", historial);
 
-        return respuesta;
+        return obtenerHistorialCanasta(desde, ultimaFecha);
     }
+
 
 
 

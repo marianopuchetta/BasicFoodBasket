@@ -280,7 +280,7 @@ public class GenericScraperService implements IScraperService {
 
     private String extractDiscoPrice(WebDriver driver) {
         try {
-            Thread.sleep(3000);
+           // Thread.sleep(3000);
             WebElement priceContainer = driver.findElement(By.cssSelector("#priceContainer"));
 			 String offerText = priceContainer.getText();
             double offerValue = parseDiscoPrice(offerText);

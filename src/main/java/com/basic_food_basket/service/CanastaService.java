@@ -23,54 +23,7 @@ public class CanastaService implements ICanastaService {
     private ProductoRepository productoRepository;
         
     
-    /*
-    @Override
-    public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
-        Map<String, Object> respuesta = new LinkedHashMap<>();
-
-        Optional<Precio> precioMasRecienteOpt = precioRepository.findTopByOrderByFechaDesc();
-        String ultimaFecha = precioMasRecienteOpt.map(precio -> precio.getFecha().toString()).orElse(null);
-
-        List<Map<String, Object>> fechas = new ArrayList<>();
-        Map<String, Object> fechaMap = new LinkedHashMap<>();
-        fechaMap.put("fecha", ultimaFecha);
-        fechas.add(fechaMap);
-
-        respuesta.put("fecha", fechas);
-
-        List<Supermercado> supermercados = productoRepository.findAll()
-                .stream().map(Producto::getSupermercado)
-                .distinct()
-                .sorted(Comparator.comparing(Supermercado::getId))
-                .collect(Collectors.toList());
-
-        List<Map<String, Object>> dataSupermercados = new ArrayList<>();
-
-        for (Supermercado supermercado : supermercados) {
-            Map<String, Object> supermercadoData = new LinkedHashMap<>();
-            supermercadoData.put("nombre", supermercado.getNombre());
-
-            List<Producto> productos = productoRepository.findBySupermercado(supermercado);
-
-            List<Map<String, Object>> productosData = new ArrayList<>();
-            for (Producto producto : productos) {
-                Optional<Precio> precioOpt = precioRepository.findLastScrapeadoByProducto(producto.getId());
-                if (precioOpt.isPresent()) {
-                    Precio precio = precioOpt.get();
-                    Map<String, Object> productoData = new LinkedHashMap<>();
-                    productoData.put("nombre", producto.getNombre());
-                    productoData.put("precio", precio.getValor());
-                    productosData.add(productoData);
-                }
-            }
-            supermercadoData.put("productos", productosData);
-            dataSupermercados.add(supermercadoData);
-        }
-        respuesta.put("supermercados", dataSupermercados);
-        return respuesta;
-    }
-
-	*/
+   
     @Override
     public Map<String, Object> obtenerUltimosPreciosPorSupermercado() {
 
@@ -145,7 +98,7 @@ public class CanastaService implements ICanastaService {
         }
         return fechas.stream().max(LocalDate::compareTo).orElse(null);
     }
-
+/*
     public Map<String, Object> obtenerHistorialCanasta(LocalDate desde, LocalDate hasta) {
         Map<String, Object> respuesta = new LinkedHashMap<>();
         List<LocalDate> fechas = precioRepository.findDistinctFechas().stream()
@@ -188,6 +141,80 @@ public class CanastaService implements ICanastaService {
         respuesta.put("historialSupermercados", data);
         return respuesta;
     }
+*/
+
+    public Map<String, Object> obtenerHistorialCanasta(LocalDate desde, LocalDate hasta) {
+
+    Map<String, Object> respuesta = new LinkedHashMap<>();
+
+    // 1. Fechas disponibles en rango
+    List<LocalDate> fechas = precioRepository.findDistinctFechas().stream()
+            .filter(f -> (f.equals(desde) || f.isAfter(desde)) &&
+                         (f.equals(hasta) || f.isBefore(hasta)))
+            .sorted()
+            .collect(Collectors.toList());
+
+    // 2. Supermercados ordenados por ID
+    List<Supermercado> supermercados = precioRepository.findDistinctSupermercados()
+            .stream()
+            .sorted(Comparator.comparing(Supermercado::getId))
+            .collect(Collectors.toList());
+
+    List<Map<String, Object>> data = new ArrayList<>();
+
+    // 3. Iteración principal
+    for (Supermercado supermercado : supermercados) {
+
+        Map<String, Object> supermercadoData = new LinkedHashMap<>();
+        supermercadoData.put("id", supermercado.getId());
+        supermercadoData.put("nombre", supermercado.getNombre());
+        supermercadoData.put("slug", supermercado.getSlug());
+
+        List<Map<String, Object>> historial = new ArrayList<>();
+
+        double ultimoTotal = Double.MAX_VALUE;
+
+        // 4. Historial por fecha
+        for (LocalDate fecha : fechas) {
+
+            Map<String, Object> registro = new LinkedHashMap<>();
+
+            // 🔥 fecha en formato ISO (mejor para apps y JSON)
+            registro.put("fecha", fecha.toString());
+
+            double total = calcularTotal(
+                    precioRepository.findByFechaAndSupermercadoAndTipoCanasta(
+                            fecha,
+                            supermercado.getId(),
+                            TipoCanasta.CBA
+                    )
+            );
+
+            total = redondear2Decimales(total);
+
+            registro.put("total_CBA", total);
+
+            historial.add(registro);
+
+            // guardar último valor
+            ultimoTotal = total;
+        }
+
+        supermercadoData.put("historial", historial);
+
+        // 🔥 campo clave para ordenar
+        supermercadoData.put("ultimo_total", ultimoTotal);
+
+        data.add(supermercadoData);
+    }
+
+    // 🔥 ORDENAR del más barato al más caro
+    data.sort(Comparator.comparing(m -> (Double) m.get("ultimo_total")));
+
+    respuesta.put("historialSupermercados", data);
+
+    return respuesta;
+}
 
     @Override
     public Map<String, Object> obtenerHistorialCanasta() {
@@ -311,174 +338,7 @@ public class CanastaService implements ICanastaService {
     }
 
 
-    /*
-    private Map<String, Object> obtenerResumenPorSupermercado() {
-        Map<String, Object> respuesta = new LinkedHashMap<>();
-
-        // 1. Lógica para encontrar la última fecha con datos (Evita el error de "todo vacío" si hoy no es el día de carga)
-        List<LocalDate> fechasDisponibles = precioRepository.findDistinctFechas();
-        
-        if (fechasDisponibles.isEmpty()) {
-            respuesta.put("mensaje", "No hay datos cargados en el sistema");
-            return respuesta;
-        }
-
-        // Tomamos la fecha más reciente disponible
-        LocalDate hoy = fechasDisponibles.stream()
-                .max(LocalDate::compareTo)
-                .orElse(LocalDate.now());
-
-        List<Precio> preciosDelDia = precioRepository.findByFechaWithRelations(hoy);
-
-        Map<Supermercado, Map<TipoCanasta, List<Precio>>> preciosAgrupados = preciosDelDia.stream()
-            .collect(Collectors.groupingBy(
-                p -> p.getProducto().getSupermercado(),
-                Collectors.groupingBy(p -> p.getProducto().getTipoCanasta())
-            ));
-
-        // 2. Definición de fechas históricas relativas a la fecha encontrada
-        LocalDate ayer = hoy.minus(1, ChronoUnit.DAYS);
-        LocalDate semanaPasada = hoy.minus(7, ChronoUnit.DAYS);
-        LocalDate mesPasado = hoy.minus(30, ChronoUnit.DAYS);
-        LocalDate añoPasado = hoy.minus(365, ChronoUnit.DAYS);
-
-        List<Map<String, Object>> supermercadosData = new ArrayList<>();
-        int contadorSupermercados = 0;
-
-        // 3. Inicialización de Acumuladores
-        // Suma total absoluta (para promedios de precios actuales)
-        Map<TipoCanasta, Double> sumaTotalesHoy = new EnumMap<>(TipoCanasta.class);
-
-        // Acumuladores "Espejo" para variaciones (Solo suman si el super existe en ambas fechas)
-        Map<TipoCanasta, Double> sumHoyParaAyer = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumAyer = new EnumMap<>(TipoCanasta.class);
-
-        Map<TipoCanasta, Double> sumHoyParaSemana = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumSemana = new EnumMap<>(TipoCanasta.class);
-
-        Map<TipoCanasta, Double> sumHoyParaMes = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumMes = new EnumMap<>(TipoCanasta.class);
-
-        Map<TipoCanasta, Double> sumHoyParaAnio = new EnumMap<>(TipoCanasta.class);
-        Map<TipoCanasta, Double> sumAnio = new EnumMap<>(TipoCanasta.class);
-
-        // Poner todo en 0.0 para evitar NullPointer
-        for (TipoCanasta tipo : TipoCanasta.values()) {
-            sumaTotalesHoy.put(tipo, 0.0);
-            
-            sumHoyParaAyer.put(tipo, 0.0); sumAyer.put(tipo, 0.0);
-            sumHoyParaSemana.put(tipo, 0.0); sumSemana.put(tipo, 0.0);
-            sumHoyParaMes.put(tipo, 0.0); sumMes.put(tipo, 0.0);
-            sumHoyParaAnio.put(tipo, 0.0); sumAnio.put(tipo, 0.0);
-        }
-
-        // 4. Iteración de Supermercados
-        for (Map.Entry<Supermercado, Map<TipoCanasta, List<Precio>>> entry : preciosAgrupados.entrySet()) {
-            Supermercado supermercado = entry.getKey();
-            Map<String, Object> supermercadoData = new LinkedHashMap<>();
-            supermercadoData.put("id", supermercado.getId());
-            supermercadoData.put("nombre", supermercado.getNombre());
-            supermercadoData.put("slug", supermercado.getSlug());
-
-            List<Map<String, Object>> canastasData = new ArrayList<>();
-            double sumaTotalesCanastasSuper = 0;
-
-            for (Map.Entry<TipoCanasta, List<Precio>> canastaEntry : entry.getValue().entrySet()) {
-                TipoCanasta tipoCanasta = canastaEntry.getKey();
-                List<Precio> precios = canastaEntry.getValue();
-
-                double totalCanastaHoy = calcularTotal(precios);
-                sumaTotalesCanastasSuper += totalCanastaHoy;
-
-                // A) Sumar al total general de HOY (Independientemente de si es nuevo o viejo)
-                sumaTotalesHoy.put(tipoCanasta, sumaTotalesHoy.get(tipoCanasta) + totalCanastaHoy);
-
-                // B) Lógica de Filtrado para Variaciones (Intersección de fechas)
-                
-                // --- Variación Diaria ---
-                double totalAyer = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(ayer, supermercado.getId(), tipoCanasta));
-                if (totalAyer > 0) { // Solo si existía ayer
-                    sumHoyParaAyer.put(tipoCanasta, sumHoyParaAyer.get(tipoCanasta) + totalCanastaHoy);
-                    sumAyer.put(tipoCanasta, sumAyer.get(tipoCanasta) + totalAyer);
-                }
-
-                // --- Variación Semanal ---
-                double totalSem = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(semanaPasada, supermercado.getId(), tipoCanasta));
-                if (totalSem > 0) { // Solo si existía la semana pasada (Carrefour no entrará aquí)
-                    sumHoyParaSemana.put(tipoCanasta, sumHoyParaSemana.get(tipoCanasta) + totalCanastaHoy);
-                    sumSemana.put(tipoCanasta, sumSemana.get(tipoCanasta) + totalSem);
-                }
-
-                // --- Variación Mensual ---
-                double totalMes = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(mesPasado, supermercado.getId(), tipoCanasta));
-                if (totalMes > 0) { 
-                    sumHoyParaMes.put(tipoCanasta, sumHoyParaMes.get(tipoCanasta) + totalCanastaHoy);
-                    sumMes.put(tipoCanasta, sumMes.get(tipoCanasta) + totalMes);
-                }
-
-                // --- Variación Anual ---
-                double totalAnio = calcularTotal(precioRepository.findByFechaAndSupermercadoAndTipoCanasta(añoPasado, supermercado.getId(), tipoCanasta));
-                if (totalAnio > 0) {
-                    sumHoyParaAnio.put(tipoCanasta, sumHoyParaAnio.get(tipoCanasta) + totalCanastaHoy);
-                    sumAnio.put(tipoCanasta, sumAnio.get(tipoCanasta) + totalAnio);
-                }
-
-                // C) Datos individuales del supermercado (Aquí sí mostramos sus variaciones propias o null)
-                Map<String, Object> canastaData = new LinkedHashMap<>();
-               // canastaData.put("tipo", tipoCanasta.name());
-                canastaData.put("total", redondear2Decimales(totalCanastaHoy));
-                canastaData.put("productos", precios.size());
-               // canastaData.put("promedioProducto", precios.isEmpty() ? 0 : redondear2Decimales(totalCanastaHoy / precios.size()));
-
-                canastaData.put("variacionDiaria", calcularVariacion(totalCanastaHoy, totalAyer));
-                canastaData.put("variacionSemanal", calcularVariacion(totalCanastaHoy, totalSem));
-                canastaData.put("variacionMensual", calcularVariacion(totalCanastaHoy, totalMes));
-                canastaData.put("variacionAnual", calcularVariacion(totalCanastaHoy, totalAnio));
-
-                canastasData.add(canastaData);
-            }
-
-            supermercadoData.put("canastas", canastasData);
-            
-            supermercadoData.put("promedioSupermercado",
-                canastasData.isEmpty() ? 0 :
-                    redondear2Decimales(sumaTotalesCanastasSuper / canastasData.size()));
-            
-            supermercadosData.add(supermercadoData);
-            contadorSupermercados++;
-        }
-
-        respuesta.put("fecha", hoy.toString());
-        respuesta.put("supermercados", supermercadosData);
-        respuesta.put("cantidadSupermercados", contadorSupermercados);
-
-        // 5. Cálculos Generales Finales
-        for (TipoCanasta tipo : TipoCanasta.values()) {
-            String nombre = tipo.name();
-
-            // Promedio General de Precios (Usa todos los supers disponibles hoy)
-            Double promedioGeneral = contadorSupermercados == 0 ? 0 : 
-                                     redondear2Decimales(sumaTotalesHoy.get(tipo) / contadorSupermercados);
-            
-            respuesta.put("promedioGeneral" + nombre, promedioGeneral);
-
-            // Variaciones Generales (Usan los acumuladores filtrados)
-            respuesta.put("variacionDiariaGeneral" + nombre, 
-                calcularVariacion(sumHoyParaAyer.get(tipo), sumAyer.get(tipo)));
-                
-            respuesta.put("variacionSemanalGeneral" + nombre, 
-                calcularVariacion(sumHoyParaSemana.get(tipo), sumSemana.get(tipo)));
-                
-            respuesta.put("variacionMensualGeneral" + nombre, 
-                calcularVariacion(sumHoyParaMes.get(tipo), sumMes.get(tipo)));
-                
-            respuesta.put("variacionAnualGeneral" + nombre, 
-                calcularVariacion(sumHoyParaAnio.get(tipo), sumAnio.get(tipo)));
-        }
-
-        return respuesta;
-    }
-    */
+   
     private Map<String, Object> obtenerResumenPorSupermercado() {
 
         Map<String, Object> respuesta = new LinkedHashMap<>();

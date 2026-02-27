@@ -24,6 +24,7 @@ public class Producto {
     private String categoria;
 
     // Clasificación extra: "Proteína animal", "Carbohidratos"
+    @Column(name = "sub_categoria")
     private String subCategoria;
 
     // Para que la Sal (10) aparezca antes que el Azúcar (11)

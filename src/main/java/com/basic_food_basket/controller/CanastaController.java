@@ -6,7 +6,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
+import com.basic_food_basket.dto.CanastaCategoriasResumenDTO;
+import com.basic_food_basket.service.CanastaCategoriasResumenService;
 import com.basic_food_basket.service.ICanastaService;
 
 import java.time.LocalDate;
@@ -18,6 +19,10 @@ public class CanastaController {
 
     @Autowired
     private ICanastaService canastaService;
+    
+
+    @Autowired
+    private CanastaCategoriasResumenService resumenService;
 
     // Resumen por supermercado (último scrap, promedios, variaciones, etc)
     @GetMapping("/resumen")
@@ -68,5 +73,16 @@ public class CanastaController {
     public ResponseEntity<?> historialUltimos30Dias() {
      return ResponseEntity.ok(canastaService.obtenerHistorialUltimos30Dias());
 }
-
+    /**
+     * GET /canasta/resume-categorias
+     * Devuelve un JSON con:
+     * - Fecha actual
+     * - Promedio de categorías (todos los supermercados)
+     * - Detalles de cada supermercado por categoría
+     */
+    @GetMapping("/resumen-categorias")
+    public ResponseEntity<CanastaCategoriasResumenDTO> obtenerResumenCategorias() {
+        CanastaCategoriasResumenDTO resumen = resumenService.generarResumenCategorias();
+        return ResponseEntity.ok(resumen);
+    }
 }

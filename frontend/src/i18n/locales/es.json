@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "title": "Seguimientos de Precios",
+    "login": "Ingresar",
+    "signup": "Registrarse"
+  },
+  "home": {
+    "hero_title": "Seguimiento de Precios Simplificado",
+    "hero_subtitle": "Monitoreá los precios de la canasta básica en supermercados en tiempo real.",
+    "cta_login": "Ingresar",
+    "cta_signup": "Comenzar"
+  },
+  "login": {
+    "title": "Ingresar",
+    "subtitle": "Accedé a tu cuenta",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Ingresar",
+    "no_account": "¿No tenés cuenta?",
+    "signup_link": "Registrate"
+  },
+  "signup": {
+    "title": "Registrarse",
+    "subtitle": "Creá una cuenta nueva",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Crear cuenta",
+    "have_account": "¿Ya tenés cuenta?",
+    "login_link": "Ingresar"
+  }
+}

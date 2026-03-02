@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "title": "Seguimientos de Precios",
+    "login": "Login",
+    "signup": "Sign Up"
+  },
+  "home": {
+    "hero_title": "Price Tracking Made Simple",
+    "hero_subtitle": "Monitor the basic food basket prices across supermarkets in real time.",
+    "cta_login": "Login",
+    "cta_signup": "Get Started"
+  },
+  "login": {
+    "title": "Login",
+    "subtitle": "Sign in to your account",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign In",
+    "no_account": "Don't have an account?",
+    "signup_link": "Sign up"
+  },
+  "signup": {
+    "title": "Sign Up",
+    "subtitle": "Create a new account",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Create Account",
+    "have_account": "Already have an account?",
+    "login_link": "Login"
+  }
+}

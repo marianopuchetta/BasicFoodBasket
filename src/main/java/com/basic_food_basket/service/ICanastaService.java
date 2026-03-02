@@ -23,4 +23,10 @@ public interface ICanastaService {
     
     Map<String, Object> obtenerHistorialUltimos30Dias();
 
+    // =========================
+    // NUEVO: historial por categorias/subcategorias
+    // =========================
+    Map<String, Object> obtenerHistorialCategoriasUltimos30Dias();
+
+    Map<String, Object> obtenerHistorialCategorias(LocalDate desde, LocalDate hasta);
 }

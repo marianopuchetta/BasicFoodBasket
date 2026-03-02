@@ -85,4 +85,17 @@ public class CanastaController {
         CanastaCategoriasResumenDTO resumen = resumenService.generarResumenCategorias();
         return ResponseEntity.ok(resumen);
     }
+    
+    @GetMapping("/categorias/historial/ultimos-30")
+    public ResponseEntity<?> historialCategoriasUltimos30Dias() {
+        return ResponseEntity.ok(canastaService.obtenerHistorialCategoriasUltimos30Dias());
+    }
+
+    @GetMapping("/categorias/historial")
+    public ResponseEntity<?> historialCategoriasRango(
+            @RequestParam("desde") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam("hasta") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta
+    ) {
+        return ResponseEntity.ok(canastaService.obtenerHistorialCategorias(desde, hasta));
+    }
 }

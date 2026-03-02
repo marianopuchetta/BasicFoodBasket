@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import com.basic_food_basket.model.Precio;
 import com.basic_food_basket.model.Producto;
 import com.basic_food_basket.model.Supermercado;
+import com.basic_food_basket.projection.ProductoFallidoResumenProjection;
 import com.basic_food_basket.repository.ProductoRepository;
 import com.basic_food_basket.repository.SupermercadoRepository;
 import com.basic_food_basket.service.IPrecioService;
@@ -94,66 +95,10 @@ public class PrecioController {
             fecha != null ? fecha : LocalDate.now()
         );
     }
-}
-/*
-package com.portfolio.backend.controller;
-
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
-import com.portfolio.backend.model.Producto;
-import com.portfolio.backend.model.Supermercado;
-import com.portfolio.backend.repository.ProductoRepository;
-import com.portfolio.backend.repository.SupermercadoRepository;
-import com.portfolio.backend.service.IPrecioService;
-import com.portfolio.backend.service.ISupermercadoService;
-
-import java.time.LocalDate;
-import java.util.*;
-
-@RestController
-@RequestMapping("/precios")
-
-public class PrecioController {
-
-    @Autowired
-    private SupermercadoRepository supermercadoRepository;
-    @Autowired
-    private ISupermercadoService iSupermercadoService;
-
-    @Autowired
-    private ProductoRepository productoRepository;
-
-    @Autowired
-    private IPrecioService precioService;
-
-    @GetMapping("/{slug}")
-    public Map<String, Object> obtenerPreciosActuales(@PathVariable String slug) {
-        Map<String, Object> respuesta = new LinkedHashMap<>();
-        Optional<Supermercado> optionalSuper = supermercadoRepository.findBySlug(slug);
-        if (!optionalSuper.isPresent()) {
-            respuesta.put("error", "Supermercado no encontrado");
-            return respuesta;
-        }
-
-        Supermercado supermercado = optionalSuper.get();
-        List<Producto> productos = productoRepository.findBySupermercado(supermercado);
-
-        LocalDate hoy = LocalDate.now();
-        Map<String, Double> precios = new LinkedHashMap<>();
-
-        for (Producto producto : productos) {
-            precioService.obtenerPrecioPorProductoYFecha(producto, hoy)
-                    .ifPresent(precio -> precios.put(producto.getNombre(), precio.getValor()));
-        }
-
-        respuesta.put("supermercado", supermercado.getNombre());
-        respuesta.put("fecha", hoy.toString());
-        respuesta.put("precios", precios);
-
-        return respuesta;
+    
+    // NUEVO ENDPOINT: resumen de productos fallidos en la fecha del último scrapeo global
+    @GetMapping("/fallidos-ultimo-scrapeo/resumen")
+    public ResponseEntity<List<ProductoFallidoResumenProjection>> obtenerResumenFallidosUltimoScrapeo() {
+        return ResponseEntity.ok(precioService.obtenerResumenProductosFallidosUltimoScrapeo());
     }
 }
-
-*/

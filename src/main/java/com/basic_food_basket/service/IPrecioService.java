@@ -7,6 +7,7 @@ import java.util.Optional;
 import com.basic_food_basket.model.Precio;
 import com.basic_food_basket.model.Producto;
 import com.basic_food_basket.model.Supermercado;
+import com.basic_food_basket.projection.ProductoFallidoResumenProjection;
 
 public interface IPrecioService {
     void guardarPrecio(Precio precio);
@@ -21,27 +22,6 @@ public interface IPrecioService {
     List<Precio> obtenerPreciosPorSupermercadoYScrapeado(Supermercado supermercado, boolean scrapeado, LocalDate fecha);
     List<Precio> obtenerUltimosPreciosScrapeados();
     Optional<Precio> findUltimoPrecioByProducto(Producto producto);
+    
+    List<ProductoFallidoResumenProjection> obtenerResumenProductosFallidosUltimoScrapeo();
 }
-/*
-package com.portfolio.backend.service;
-
-
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import com.portfolio.backend.model.Precio;
-import com.portfolio.backend.model.Producto;
-
-public interface IPrecioService {
-
-    void guardarPrecio(Precio precio);
-
-    Optional<Precio> obtenerPrecioPorProductoYFecha(Producto producto, LocalDate fecha);
-
-    List<Precio> obtenerPreciosPorFecha(LocalDate fecha);
-
-    List<Precio> obtenerHistorialDeProducto(Producto producto);
-}
-*/

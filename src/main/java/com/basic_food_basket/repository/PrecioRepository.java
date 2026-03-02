@@ -9,6 +9,7 @@ import com.basic_food_basket.model.Precio;
 import com.basic_food_basket.model.Producto;
 import com.basic_food_basket.model.Supermercado;
 import com.basic_food_basket.model.TipoCanasta;
+import com.basic_food_basket.projection.ProductoFallidoResumenProjection;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -130,5 +131,45 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
 				@Query("SELECT p FROM Precio p WHERE p.fecha = :fecha AND p.producto.supermercado.id = :supermercadoId")
 				List<Precio> findByFechaAndSupermercadoId(@Param("fecha") LocalDate fecha, @Param("supermercadoId") Long supermercadoId);
 
-			
+				@Query(value =
+						"SELECT " +
+						"  s.id AS supermercado_id, " +
+						"  s.nombre AS supermercado_nombre, " +
+						"  s.slug AS supermercado_slug, " +
+						"  p.fecha AS fecha, " +
+						"  pr.categoria AS categoria, " +
+						"  pr.sub_categoria AS sub_categoria, " +
+						"  SUM(p.valor) AS total " +
+						"FROM precio p " +
+						"JOIN producto pr ON pr.id = p.producto_id " +
+						"JOIN supermercado s ON s.id = pr.supermercado_id " +
+						"WHERE p.fecha BETWEEN :desde AND :hasta " +
+						"  AND pr.tipo_canasta = 'CBA' " +
+						"GROUP BY s.id, s.nombre, s.slug, p.fecha, pr.categoria, pr.sub_categoria " +
+						"ORDER BY s.id, p.fecha",
+						nativeQuery = true)
+				List<Object[]> obtenerTotalesPorSuperFechaCategoriaSubcategoria(
+						@Param("desde") LocalDate desde,
+						@Param("hasta") LocalDate hasta
+				);
+				
+				  @Query(value =
+					        "SELECT " +
+					        "  pr.id AS productoId, " +
+					        "  pr.nombre AS nombreProducto, " +
+					        "  pr.url AS urlProducto, " +
+					        "  COUNT(DISTINCT p.fecha) AS totalDiasNoScrapeados " +
+					        "FROM precio p " +
+					        "JOIN producto pr ON p.producto_id = pr.id " +
+					        "JOIN ( " +
+					        "    SELECT DISTINCT producto_id " +
+					        "    FROM precio " +
+					        "    WHERE fecha = (SELECT MAX(fecha) FROM precio WHERE scrapeado = 1) " +
+					        "      AND scrapeado = 0 " +
+					        ") ProductosFallidosUltimoScrapeo ON p.producto_id = ProductosFallidosUltimoScrapeo.producto_id " +
+					        "WHERE p.scrapeado = 0 " +
+					        "GROUP BY pr.id, pr.nombre, pr.url " +
+					        "ORDER BY totalDiasNoScrapeados DESC, pr.nombre",
+					        nativeQuery = true)
+					    List<ProductoFallidoResumenProjection> findResumenProductosFallidosUltimoScrapeo();
 }

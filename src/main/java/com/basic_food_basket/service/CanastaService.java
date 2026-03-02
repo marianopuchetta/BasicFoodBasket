@@ -432,10 +432,7 @@ public class CanastaService implements ICanastaService {
 		return Math.round(variacion * 100.0) / 100.0;
 	}
 
-	private double redondear2Decimales(double valor) {
-		return Math.round(valor * 100.0) / 100.0;
-	}
-
+	
 	private LocalDate obtenerUltimaFecha() {
 		List<LocalDate> fechas = precioRepository.findDistinctFechas();
 
@@ -458,5 +455,182 @@ public class CanastaService implements ICanastaService {
 		LocalDate desde = ultimaFecha.minusDays(30);
 
 		return obtenerHistorialCanasta(desde, ultimaFecha);
+	}
+	
+	@Override
+	public Map<String, Object> obtenerHistorialCategoriasUltimos30Dias() {
+		LocalDate ultimaFecha = precioRepository.obtenerUltimaFecha();
+		if (ultimaFecha == null) {
+			Map<String, Object> r = new LinkedHashMap<>();
+			r.put("desde", null);
+			r.put("hasta", null);
+			r.put("historialSupermercados", new ArrayList<>());
+			return r;
+		}
+		LocalDate desde = ultimaFecha.minusDays(30);
+		return obtenerHistorialCategorias(desde, ultimaFecha);
+	}
+
+	@Override
+	public Map<String, Object> obtenerHistorialCategorias(LocalDate desde, LocalDate hasta) {
+
+		Map<String, Object> respuesta = new LinkedHashMap<>();
+		respuesta.put("desde", desde.toString());
+		respuesta.put("hasta", hasta.toString());
+
+		// Eje de fechas: mismas reglas que tu historial actual (fechas existentes en BD dentro del rango)
+		List<LocalDate> fechas = precioRepository.findDistinctFechas().stream()
+				.filter(f -> (f.equals(desde) || f.isAfter(desde)) && (f.equals(hasta) || f.isBefore(hasta)))
+				.sorted()
+				.collect(Collectors.toList());
+
+		if (fechas.isEmpty()) {
+			respuesta.put("historialSupermercados", new ArrayList<>());
+			return respuesta;
+		}
+
+		// Traemos todos los supermercados que aparecen en precios (igual que tu historial actual)
+		List<Supermercado> supermercados = precioRepository.findDistinctSupermercados().stream()
+				.sorted(Comparator.comparing(Supermercado::getId))
+				.collect(Collectors.toList());
+
+		// Query grande: totales agregados por super+fecha+cat+subcat (solo CBA)
+		List<Object[]> rows = precioRepository.obtenerTotalesPorSuperFechaCategoriaSubcategoria(fechas.get(0), fechas.get(fechas.size() - 1));
+
+		// Index:
+		// superId -> categoria -> subCategoria -> (fecha -> total)
+		Map<Long, Map<String, Map<String, Map<LocalDate, Double>>>> idx = new HashMap<>();
+
+		// ...
+		for (Object[] row : rows) {
+		    Long superId = ((Number) row[0]).longValue();
+
+		    // row[3] viene como java.sql.Date en queries nativas
+		    LocalDate fecha;
+		    Object fechaObj = row[3];
+		    if (fechaObj instanceof java.sql.Date) {
+		        fecha = ((java.sql.Date) fechaObj).toLocalDate();
+		    } else if (fechaObj instanceof java.sql.Timestamp) {
+		        fecha = ((java.sql.Timestamp) fechaObj).toLocalDateTime().toLocalDate();
+		    } else {
+		        // fallback por si el driver ya lo da como LocalDate
+		        fecha = (LocalDate) fechaObj;
+		    }
+
+		    String categoria = (String) row[4];
+		    String subCategoria = (String) row[5];
+		    Double total = row[6] != null ? ((Number) row[6]).doubleValue() : null;
+
+		    idx
+		        .computeIfAbsent(superId, __ -> new HashMap<>())
+		        .computeIfAbsent(categoria, __ -> new HashMap<>())
+		        .computeIfAbsent(subCategoria, __ -> new HashMap<>())
+		        .put(fecha, total);
+		}
+		// ...
+		List<Map<String, Object>> dataSupers = new ArrayList<>();
+
+		for (Supermercado s : supermercados) {
+			Map<String, Object> superData = new LinkedHashMap<>();
+			superData.put("id", s.getId());
+			superData.put("nombre", s.getNombre());
+			superData.put("slug", s.getSlug());
+
+			Map<String, Map<String, Map<LocalDate, Double>>> porCategoria = idx.getOrDefault(s.getId(), Collections.emptyMap());
+
+			List<Map<String, Object>> categoriasOut = new ArrayList<>();
+
+			// Para mantener determinismo: ordenar categorías por nombre
+			List<String> categoriasOrdenadas = new ArrayList<>(porCategoria.keySet());
+			Collections.sort(categoriasOrdenadas);
+
+			for (String cat : categoriasOrdenadas) {
+				Map<String, Object> catData = new LinkedHashMap<>();
+				catData.put("nombre", cat);
+
+				Map<String, Map<LocalDate, Double>> porSub = porCategoria.getOrDefault(cat, Collections.emptyMap());
+
+				// Historial TOTAL categoría = suma de subcategorías por fecha.
+				// Si no hay ninguna subcategoría con dato en esa fecha -> null
+				List<Map<String, Object>> histCat = new ArrayList<>();
+				for (LocalDate fecha : fechas) {
+					Double suma = 0.0;
+					boolean huboAlgo = false;
+
+					for (Map<LocalDate, Double> serieSub : porSub.values()) {
+						Double v = serieSub.get(fecha);
+						if (v != null) {
+							suma += v;
+							huboAlgo = true;
+						}
+					}
+
+					Map<String, Object> punto = new LinkedHashMap<>();
+					punto.put("fecha", fecha.toString());
+					punto.put("total", huboAlgo ? redondear2Decimales(suma) : null);
+					histCat.add(punto);
+				}
+				catData.put("historial", histCat);
+
+				// Subcategorías con historial propio
+				List<Map<String, Object>> subOut = new ArrayList<>();
+
+				List<String> subOrdenadas = new ArrayList<>(porSub.keySet());
+				Collections.sort(subOrdenadas);
+
+				for (String sub : subOrdenadas) {
+					Map<String, Object> subData = new LinkedHashMap<>();
+					subData.put("nombre", sub);
+
+					Map<LocalDate, Double> serie = porSub.getOrDefault(sub, Collections.emptyMap());
+
+					List<Map<String, Object>> histSub = new ArrayList<>();
+					for (LocalDate fecha : fechas) {
+						Map<String, Object> punto = new LinkedHashMap<>();
+						punto.put("fecha", fecha.toString());
+						Double v = serie.get(fecha);
+						punto.put("total", v == null ? null : redondear2Decimales(v));
+						histSub.add(punto);
+					}
+
+					subData.put("historial", histSub);
+					subOut.add(subData);
+				}
+
+				catData.put("subcategorias", subOut);
+				categoriasOut.add(catData);
+			}
+
+			superData.put("categorias", categoriasOut);
+
+			// ultimo_total: total CBA del último día = suma de todas las categorías (usamos el mismo criterio que arriba)
+			LocalDate ultima = fechas.get(fechas.size() - 1);
+			Double ultimoTotal = 0.0;
+			boolean huboAlgoUltimo = false;
+
+			for (Map<String, Map<LocalDate, Double>> porSub : porCategoria.values()) {
+				for (Map<LocalDate, Double> serieSub : porSub.values()) {
+					Double v = serieSub.get(ultima);
+					if (v != null) {
+						ultimoTotal += v;
+						huboAlgoUltimo = true;
+					}
+				}
+			}
+
+			superData.put("ultimo_total", huboAlgoUltimo ? redondear2Decimales(ultimoTotal) : null);
+
+			dataSupers.add(superData);
+		}
+
+		// Ordenar por ultimo_total asc (como tu historial actual)
+		dataSupers.sort(Comparator.comparing(m -> (Double) m.get("ultimo_total"), Comparator.nullsLast(Double::compareTo)));
+
+		respuesta.put("historialSupermercados", dataSupers);
+		return respuesta;
+	}
+
+	private double redondear2Decimales(double valor) {
+		return Math.round(valor * 100.0) / 100.0;
 	}
 }

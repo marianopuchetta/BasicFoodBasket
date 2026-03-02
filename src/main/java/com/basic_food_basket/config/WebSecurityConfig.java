@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
@@ -38,8 +39,6 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 	@Autowired
 	public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
-		// configure AuthenticationManager so that it knows from where to load
-		// user for matching credentials
 		// Use BCryptPasswordEncoder
 		auth.userDetailsService(jwtUserDetailsService).passwordEncoder(passwordEncoder());
 	}
@@ -57,11 +56,14 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 	@Override
 	protected void configure(HttpSecurity httpSecurity) throws Exception {
-		// We don't need CSRF for this example
-		httpSecurity.csrf().disable()
+		httpSecurity
+				// We don't need CSRF for APIs with JWT
+				.csrf().disable()
 				.cors().and()
-				// dont authenticate these particular requests
+
 				.authorizeRequests()
+
+				// Endpoints públicos
 				.antMatchers(
 						"/authenticate",
 						"/register",
@@ -71,19 +73,26 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 						"/canasta/**",
 
 						// Permitir todos los endpoints del scraper
-						"/scrap/**",
-
-						// Nuevo endpoint: resumen de fallidos en último scrapeo global
-						"/precios/fallidos-ultimo-scrapeo/resumen"
+						"/scrap/**"
 				).permitAll()
-				// all other requests need to be authenticated
+
+				// ====== REGLAS ROLE_ADMIN ======
+				// Solo ADMIN puede crear productos
+				.antMatchers(HttpMethod.POST, "/productos/newproducto").hasAuthority("ROLE_ADMIN")
+
+				// (opcional) si querés que cualquier modificación de productos sea admin:
+				.antMatchers(HttpMethod.POST, "/productos/**").hasAuthority("ROLE_ADMIN")
+				 .antMatchers(HttpMethod.PUT, "/productos/**").hasAuthority("ROLE_ADMIN")
+				.antMatchers(HttpMethod.PATCH, "/productos/**").hasAuthority("ROLE_ADMIN")
+				 .antMatchers(HttpMethod.DELETE, "/productos/**").hasAuthority("ROLE_ADMIN")
+
+				// Todo lo demás requiere estar autenticado
 				.anyRequest().authenticated().and()
-				// make sure we use stateless session; session won't be used to
-				// store user's state.
+
 				.exceptionHandling().authenticationEntryPoint(jwtAuthenticationEntryPoint).and()
 				.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
-		// Add a filter to validate the tokens with every request
+		// Validar JWT en cada request
 		httpSecurity.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 	}
 
@@ -94,8 +103,6 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 		// Vite dev server
 		configuration.setAllowedOrigins(Arrays.asList(
 				"http://localhost:5173"
-				// Si todavía usás Angular en algún momento:
-				// "http://localhost:4200"
 		));
 
 		configuration.setAllowCredentials(true);

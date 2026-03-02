@@ -19,6 +19,9 @@ public class Usuario {
 	@JsonIgnore
 	private String password;
 	
+    private String role;
+
+	
 	public long getId() {
 		return id;
 	}
@@ -52,6 +55,8 @@ public class Usuario {
 		this.password = password;
 	}
 
-	
+	  public String getRole() { return role; }
+
+	    public void setRole(String role) { this.role = role; }
 
 }

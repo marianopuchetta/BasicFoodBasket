@@ -1181,9 +1181,9 @@ public class CanastaService implements ICanastaService {
 
 			List<Map<String, Object>> categoriasOut = new ArrayList<>();
 
-			// Para mantener determinismo: ordenar categorías por nombre
+			// Para mantener determinismo: ordenar categorías por nombre (null-safe)
 			List<String> categoriasOrdenadas = new ArrayList<>(porCategoria.keySet());
-			Collections.sort(categoriasOrdenadas);
+			categoriasOrdenadas.sort(Comparator.nullsLast(String::compareTo));
 
 			for (String cat : categoriasOrdenadas) {
 				Map<String, Object> catData = new LinkedHashMap<>();
@@ -1221,7 +1221,7 @@ public class CanastaService implements ICanastaService {
 				List<Map<String, Object>> subOut = new ArrayList<>();
 
 				List<String> subOrdenadas = new ArrayList<>(porSub.keySet());
-				Collections.sort(subOrdenadas);
+				subOrdenadas.sort(Comparator.nullsLast(String::compareTo));
 
 				for (String sub : subOrdenadas) {
 					Map<String, Object> subData = new LinkedHashMap<>();

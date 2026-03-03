@@ -1126,23 +1126,29 @@ public class CanastaService implements ICanastaService {
 			return respuesta;
 		}
 
-		// ✅ fecha anterior real (para calcular la variación del primer día)
-		LocalDate fechaAnterior = precioRepository.obtenerFechaAnterior(desde);
-
-		// NUEVO: dates único para todo el payload
+		// ✅ dates único para todo el payload
 		respuesta.put("dates", fechas.stream().map(LocalDate::toString).collect(Collectors.toList()));
+
+		// ✅ fecha principal = última fecha disponible dentro del rango
+		LocalDate hoy = fechas.get(fechas.size() - 1);
+
+		// ✅ usar todas las fechas disponibles para buscar la más cercana anterior
+		List<LocalDate> todasLasFechas = precioRepository.findDistinctFechas();
+		todasLasFechas.sort(Collections.reverseOrder());
+
+		LocalDate ayer = obtenerFechaDiasAtras(hoy, 1, todasLasFechas);
+		LocalDate semanaPasada = obtenerFechaDiasAtras(hoy, 7, todasLasFechas);
+		LocalDate mesPasado = obtenerFechaDiasAtras(hoy, 30, todasLasFechas);
+		LocalDate anioPasado = obtenerFechaDiasAtras(hoy, 365, todasLasFechas);
 
 		// Traemos todos los supermercados que aparecen en precios (igual que tu historial actual)
 		List<Supermercado> supermercados = precioRepository.findDistinctSupermercados().stream()
 				.sorted(Comparator.comparing(Supermercado::getId))
 				.collect(Collectors.toList());
 
-		// ⬇️ si existe fecha anterior, traemos un día más para poder calcular variaciones del primer día
-		LocalDate desdeQuery = (fechaAnterior != null) ? fechaAnterior : fechas.get(0);
-
 		// Query grande: totales agregados por super+fecha+cat+subcat (solo CBA)
 		List<Object[]> rows = precioRepository.obtenerTotalesPorSuperFechaCategoriaSubcategoria(
-				desdeQuery,
+				fechas.get(0),
 				fechas.get(fechas.size() - 1)
 		);
 
@@ -1214,30 +1220,23 @@ public class CanastaService implements ICanastaService {
 					}
 					totalsCat.add(huboAlgo ? redondear2Decimales(suma) : null);
 				}
-				catData.put("totals", totalsCat);
+				catData.put("totales", totalsCat);
 
-				// ✅ Variaciones usando el día anterior real como primer prev
-				List<Double> varsCat = new ArrayList<>(fechas.size());
-				Double prev = null;
+				// ✅ Variaciones únicas (como resumen-categorias) respecto de la última fecha
+				Double totalHoy = calcularTotalCategoriaEnFecha(porSub, hoy);
+				Double totalAyer = (ayer != null) ? calcularTotalCategoriaEnFecha(porSub, ayer) : null;
+				Double totalSemana = (semanaPasada != null) ? calcularTotalCategoriaEnFecha(porSub, semanaPasada) : null;
+				Double totalMes = (mesPasado != null) ? calcularTotalCategoriaEnFecha(porSub, mesPasado) : null;
+				Double totalAnio = (anioPasado != null) ? calcularTotalCategoriaEnFecha(porSub, anioPasado) : null;
 
-				if (fechaAnterior != null) {
-					Double sumaPrev = 0.0;
-					boolean huboPrev = false;
-					for (Map<LocalDate, Double> serieSub : porSub.values()) {
-						Double v = serieSub.get(fechaAnterior);
-						if (v != null) {
-							sumaPrev += v;
-							huboPrev = true;
-						}
-					}
-					prev = huboPrev ? redondear2Decimales(sumaPrev) : null;
-				}
-
-				for (Double actual : totalsCat) {
-					varsCat.add(calcularVariacion(actual, prev));
-					prev = actual;
-				}
-				catData.put("variations", varsCat);
+				catData.put("variacionDiaria",
+						(totalHoy != null && totalAyer != null && totalAyer > 0) ? calcularVariacion(totalHoy, totalAyer) : null);
+				catData.put("variacionSemanal",
+						(totalHoy != null && totalSemana != null && totalSemana > 0) ? calcularVariacion(totalHoy, totalSemana) : null);
+				catData.put("variacionMensual",
+						(totalHoy != null && totalMes != null && totalMes > 0) ? calcularVariacion(totalHoy, totalMes) : null);
+				catData.put("variacionAnual",
+						(totalHoy != null && totalAnio != null && totalAnio > 0) ? calcularVariacion(totalHoy, totalAnio) : null);
 
 				// ---- Subcategorías ----
 				List<Map<String, Object>> subOut = new ArrayList<>();
@@ -1256,18 +1255,22 @@ public class CanastaService implements ICanastaService {
 						Double v = serie.get(fecha);
 						totalsSub.add(v == null ? null : redondear2Decimales(v));
 					}
-					subData.put("totals", totalsSub);
+					subData.put("totales", totalsSub);
 
-					// ✅ Variaciones usando el día anterior real como primer prev
-					List<Double> varsSub = new ArrayList<>(fechas.size());
-					Double prevSub = (fechaAnterior != null) ? serie.get(fechaAnterior) : null;
-					prevSub = prevSub == null ? null : redondear2Decimales(prevSub);
+					Double subHoy = obtenerTotalSubcategoriaEnFecha(serie, hoy);
+					Double subAyer = (ayer != null) ? obtenerTotalSubcategoriaEnFecha(serie, ayer) : null;
+					Double subSemana = (semanaPasada != null) ? obtenerTotalSubcategoriaEnFecha(serie, semanaPasada) : null;
+					Double subMes = (mesPasado != null) ? obtenerTotalSubcategoriaEnFecha(serie, mesPasado) : null;
+					Double subAnio = (anioPasado != null) ? obtenerTotalSubcategoriaEnFecha(serie, anioPasado) : null;
 
-					for (Double actual : totalsSub) {
-						varsSub.add(calcularVariacion(actual, prevSub));
-						prevSub = actual;
-					}
-					subData.put("variations", varsSub);
+					subData.put("variacionDiaria",
+							(subHoy != null && subAyer != null && subAyer > 0) ? calcularVariacion(subHoy, subAyer) : null);
+					subData.put("variacionSemanal",
+							(subHoy != null && subSemana != null && subSemana > 0) ? calcularVariacion(subHoy, subSemana) : null);
+					subData.put("variacionMensual",
+							(subHoy != null && subMes != null && subMes > 0) ? calcularVariacion(subHoy, subMes) : null);
+					subData.put("variacionAnual",
+							(subHoy != null && subAnio != null && subAnio > 0) ? calcularVariacion(subHoy, subAnio) : null);
 
 					subOut.add(subData);
 				}
@@ -1305,7 +1308,52 @@ public class CanastaService implements ICanastaService {
 		respuesta.put("historialSupermercados", dataSupers);
 		return respuesta;
 	}
+	
+	// ✅ Helper: fecha más cercana anterior (igual que en CanastaCategoriasResumenService)
+	private LocalDate obtenerFechaDiasAtras(LocalDate fechaPrincipal, int dias, List<LocalDate> todasLasFechas) {
+		LocalDate fechaBuscada = fechaPrincipal.minusDays(dias);
 
+		if (todasLasFechas.contains(fechaBuscada)) {
+			return fechaBuscada;
+		}
+
+		LocalDate fechaMasCercana = null;
+		long diferenciaMenor = Long.MAX_VALUE;
+
+		for (LocalDate fecha : todasLasFechas) {
+			if (fecha.isBefore(fechaBuscada)) {
+				long diferencia = java.time.temporal.ChronoUnit.DAYS.between(fecha, fechaBuscada);
+				if (diferencia < diferenciaMenor) {
+					diferenciaMenor = diferencia;
+					fechaMasCercana = fecha;
+				}
+			}
+		}
+
+		return fechaMasCercana;
+	}
+
+	// ✅ Helper: total de una categoría para una fecha específica
+	private Double calcularTotalCategoriaEnFecha(Map<String, Map<LocalDate, Double>> porSub, LocalDate fecha) {
+		Double suma = 0.0;
+		boolean huboAlgo = false;
+
+		for (Map<LocalDate, Double> serieSub : porSub.values()) {
+			Double v = serieSub.get(fecha);
+			if (v != null) {
+				suma += v;
+				huboAlgo = true;
+			}
+		}
+
+		return huboAlgo ? redondear2Decimales(suma) : null;
+	}
+
+	// ✅ Helper: total de una subcategoría para una fecha específica
+	private Double obtenerTotalSubcategoriaEnFecha(Map<LocalDate, Double> serie, LocalDate fecha) {
+		Double v = serie.get(fecha);
+		return v == null ? null : redondear2Decimales(v);
+	}
 	private double redondear2Decimales(double valor) {
 		return Math.round(valor * 100.0) / 100.0;
 	}

@@ -1126,6 +1126,9 @@ public class CanastaService implements ICanastaService {
 			return respuesta;
 		}
 
+		// ✅ fecha anterior real (para calcular la variación del primer día)
+		LocalDate fechaAnterior = precioRepository.obtenerFechaAnterior(desde);
+
 		// NUEVO: dates único para todo el payload
 		respuesta.put("dates", fechas.stream().map(LocalDate::toString).collect(Collectors.toList()));
 
@@ -1134,9 +1137,14 @@ public class CanastaService implements ICanastaService {
 				.sorted(Comparator.comparing(Supermercado::getId))
 				.collect(Collectors.toList());
 
+		// ⬇️ si existe fecha anterior, traemos un día más para poder calcular variaciones del primer día
+		LocalDate desdeQuery = (fechaAnterior != null) ? fechaAnterior : fechas.get(0);
+
 		// Query grande: totales agregados por super+fecha+cat+subcat (solo CBA)
-		List<Object[]> rows = precioRepository.obtenerTotalesPorSuperFechaCategoriaSubcategoria(fechas.get(0),
-				fechas.get(fechas.size() - 1));
+		List<Object[]> rows = precioRepository.obtenerTotalesPorSuperFechaCategoriaSubcategoria(
+				desdeQuery,
+				fechas.get(fechas.size() - 1)
+		);
 
 		// Index:
 		// superId -> categoria -> subCategoria -> (fecha -> total)
@@ -1208,9 +1216,23 @@ public class CanastaService implements ICanastaService {
 				}
 				catData.put("totals", totalsCat);
 
-				// Variaciones (día contra día) usando null para faltantes
+				// ✅ Variaciones usando el día anterior real como primer prev
 				List<Double> varsCat = new ArrayList<>(fechas.size());
 				Double prev = null;
+
+				if (fechaAnterior != null) {
+					Double sumaPrev = 0.0;
+					boolean huboPrev = false;
+					for (Map<LocalDate, Double> serieSub : porSub.values()) {
+						Double v = serieSub.get(fechaAnterior);
+						if (v != null) {
+							sumaPrev += v;
+							huboPrev = true;
+						}
+					}
+					prev = huboPrev ? redondear2Decimales(sumaPrev) : null;
+				}
+
 				for (Double actual : totalsCat) {
 					varsCat.add(calcularVariacion(actual, prev));
 					prev = actual;
@@ -1236,8 +1258,11 @@ public class CanastaService implements ICanastaService {
 					}
 					subData.put("totals", totalsSub);
 
+					// ✅ Variaciones usando el día anterior real como primer prev
 					List<Double> varsSub = new ArrayList<>(fechas.size());
-					Double prevSub = null;
+					Double prevSub = (fechaAnterior != null) ? serie.get(fechaAnterior) : null;
+					prevSub = prevSub == null ? null : redondear2Decimales(prevSub);
+
 					for (Double actual : totalsSub) {
 						varsSub.add(calcularVariacion(actual, prevSub));
 						prevSub = actual;

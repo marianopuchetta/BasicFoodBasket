@@ -172,4 +172,8 @@ public interface PrecioRepository extends JpaRepository<Precio, Long> {
 					        "ORDER BY totalDiasNoScrapeados DESC, pr.nombre",
 					        nativeQuery = true)
 					    List<ProductoFallidoResumenProjection> findResumenProductosFallidosUltimoScrapeo();
+				  
+				// ⬇️ Agregar este método nuevo
+				  @Query("SELECT MAX(p.fecha) FROM Precio p WHERE p.fecha < :desde")
+				  LocalDate obtenerFechaAnterior(@Param("desde") LocalDate desde);
 }
